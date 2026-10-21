@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Backoff before retry n is base * 2^(n-1): 500 ms, then 1 s (EC-05, EC-07).
     provider_retry_backoff_ms: int = Field(default=500, ge=0, le=10_000)
     rate_limit_profile: Literal["default", "simulation", "off"] = "default"
+    auto_seed_policy: bool = True  # seed policy/seed_policy.json on startup if no policy exists
 
     cors_origins: str = "http://localhost:3000"
     log_level: str = "INFO"

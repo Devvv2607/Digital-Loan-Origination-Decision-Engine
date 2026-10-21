@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import AppError
 from app.core.masking import mask_pan
 from app.core.security import Principal, Role
+from app.engine.policy import load_policy
 from app.models import Application, ApplicationEvent
 from app.schemas.applications import (
     DETAIL_FIELDS,
@@ -111,15 +112,21 @@ def update_details(
             {"state": application.state},
         )
     changes = patch.model_dump(exclude_unset=True)
-    if "date_of_birth" in changes and changes["date_of_birth"] is not None:
-        dob = changes["date_of_birth"]
-        if dob >= now.date() or dob.year < 1900:
-            raise AppError(
-                422,
-                "VALIDATION_ERROR",
-                "Some fields need attention.",
-                {"fields": [{"field": "date_of_birth", "message": "Enter a valid date of birth in the past."}]},
-            )
+    errors = []
+    dob = changes.get("date_of_birth")
+    if dob is not None and (dob >= now.date() or dob.year < 1900):
+        errors.append({"field": "date_of_birth", "message": "Enter a valid date of birth in the past."})
+    if changes.get("loan_amount") is not None or changes.get("tenure_months") is not None:
+        pricing = load_policy(db).pricing
+        amount, tenure = changes.get("loan_amount"), changes.get("tenure_months")
+        if amount is not None and not pricing.loan_amount_min <= amount <= pricing.loan_amount_max:
+            errors.append({"field": "loan_amount", "message":
+                           f"Choose an amount between {pricing.loan_amount_min} and {pricing.loan_amount_max}."})
+        if tenure is not None and not pricing.tenure_months_min <= tenure <= pricing.tenure_months_max:
+            errors.append({"field": "tenure_months", "message":
+                           f"Choose a tenure between {pricing.tenure_months_min} and {pricing.tenure_months_max} months."})
+    if errors:
+        raise AppError(422, "VALIDATION_ERROR", "Some fields need attention.", {"fields": errors})
     for field, value in changes.items():
         setattr(application, field, value.value if hasattr(value, "value") else value)
     touch(application, now)

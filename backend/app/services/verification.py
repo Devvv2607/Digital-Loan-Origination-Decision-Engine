@@ -16,8 +16,9 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.masking import mask_pan
-from app.core.names import NAME_SIMILARITY_MIN, display_name, name_similarity
+from app.core.names import display_name, name_similarity
 from app.engine.fraud import f1_duplicate_pan
+from app.engine.policy import load_policy
 from app.integrations.base import PAN_FORMAT, BureauReport, ProviderError, ProviderTimeout
 from app.integrations.calls import call_with_retries, logged_call
 from app.integrations.registry import Providers
@@ -117,8 +118,10 @@ def verify_pan(
     # Serialise concurrent verifications of the same PAN so the duplicate check is reliable.
     db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"pan:{pan}"})
 
+    policy = load_policy(db)
+
     # EC-11 / F1: another active application already holds this PAN.
-    if f1_duplicate_pan.find_active_duplicate(db, pan, app.id) is not None:
+    if policy.enabled("F1") and f1_duplicate_pan.find_active_duplicate(db, pan, app.id) is not None:
         record_event(
             db,
             app,
@@ -159,7 +162,8 @@ def verify_pan(
     app.pan_name_similarity = name_similarity(app.full_name, result.name)
     app.pan_name_confirmation = None
 
-    if app.pan_name_similarity >= NAME_SIMILARITY_MIN:
+    # EC-04 uses the same name-match threshold as fraud check F3.
+    if app.pan_name_similarity >= policy.params("F3").name_similarity_min:
         app.pan_status = "VERIFIED"
         db.commit()
         return _pan_response(app, "VERIFIED", name_on_pan=app.pan_name)

@@ -56,14 +56,15 @@ def test_details_can_be_saved_in_steps(client, applicant_headers):
 
 def test_invalid_details_rejected_field_by_field(client, applicant_headers):
     app_id = create_application(client, applicant_headers)
-    r = client.patch(
-        f"/applications/{app_id}",
-        json={"loan_amount": 10_000, "tenure_months": 72, "employment_type": "STUDENT"},
-        headers=applicant_headers,
-    )
+    r = client.patch(f"/applications/{app_id}", json={"employment_type": "STUDENT"}, headers=applicant_headers)
     assert r.status_code == 422
-    fields = {f["field"] for f in r.json()["details"]["fields"]}
-    assert fields == {"loan_amount", "tenure_months", "employment_type"}
+    assert {f["field"] for f in r.json()["details"]["fields"]} == {"employment_type"}
+
+    # Amount and tenure limits come from the PRICING policy (50,000-25,00,000; 12-60 months).
+    r = client.patch(f"/applications/{app_id}", json={"loan_amount": 10_000, "tenure_months": 72},
+                     headers=applicant_headers)
+    assert r.status_code == 422
+    assert {f["field"] for f in r.json()["details"]["fields"]} == {"loan_amount", "tenure_months"}
     # Nothing was stored.
     view = client.get(f"/applications/{app_id}", headers=applicant_headers).json()
     assert view["details"]["loan_amount"] is None

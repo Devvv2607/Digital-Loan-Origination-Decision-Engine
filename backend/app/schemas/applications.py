@@ -5,8 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from app.core import product
-
 
 class EmploymentType(StrEnum):
     SALARIED = "SALARIED"
@@ -37,8 +35,9 @@ class ApplicationDetailsPatch(BaseModel):
     employer_name: Name | None = None
     months_in_current_job: int | None = Field(default=None, ge=0, le=600)
     declared_monthly_income: int | None = Field(default=None, ge=0, le=100_000_000)
-    loan_amount: int | None = Field(default=None, ge=product.LOAN_AMOUNT_MIN, le=product.LOAN_AMOUNT_MAX)
-    tenure_months: int | None = Field(default=None, ge=product.TENURE_MONTHS_MIN, le=product.TENURE_MONTHS_MAX)
+    # Product limits come from the current PRICING policy and are checked in the service.
+    loan_amount: int | None = Field(default=None, ge=1, le=100_000_000)
+    tenure_months: int | None = Field(default=None, ge=1, le=360)
     purpose: LoanPurpose | None = None
 
 

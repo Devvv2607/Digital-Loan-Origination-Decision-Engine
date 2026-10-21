@@ -34,8 +34,8 @@ Policy lives in the `rule_configs` table and is seeded from `backend/policy/seed
      "parameters": {"min_age_now": 21, "max_age_at_maturity": 60},
      "outcome_on_fail": "DECLINE", "reason_codes": ["ELIG_AGE"]},
     {"rule_id": "R2", "kind": "ELIGIBILITY", "name": "Credit score", "enabled": true,
-     "parameters": {"approve_threshold": "<set by seed_policy_from_cutoff.py>",
-                    "refer_floor": "<set by seed_policy_from_cutoff.py>",
+     "parameters": {"approve_threshold": 631,
+                    "refer_floor": 608,
                     "ntc_outcome": "REFER",
                     "calibration": {"reference_approval_rate": 0.882, "refer_band_width": 0.05}},
      "outcome_on_fail": "DECLINE",
@@ -44,7 +44,7 @@ Policy lives in the `rule_configs` table and is seeded from `backend/policy/seed
 }
 ```
 
-R2 values are deliberately left as placeholders until the seeding script runs in Phase 3. No threshold value is written into these docs by hand.
+The R2 values above were written by `scripts/seed_policy_from_cutoff.py` (Phase 3 run), not by hand; see §6. Defaults for every other rule live in `backend/policy/policy_template.json`, which the script copies into `seed_policy.json`. A test checks that the committed seed file is exactly what the script produces.
 
 ---
 
@@ -137,7 +137,7 @@ Boundaries are stated exactly; tests cover each boundary value.
 | Cap | Counter-offer amount = `floor(multiplier × income / 1,000) × 1,000`. Recalculate EMI at the same rate and tenure and **re-run R4** on the counter-offer amount |
 | Result | If R4 passes on the capped amount: counter-offer, `INFO_AMOUNT_CAPPED` (informational; does not refer). If R4 refers or declines on the capped amount: that R4 outcome stands, and `INFO_AMOUNT_CAPPED` is still recorded so analysts see the cap |
 | Parameters | `max_multiple_of_monthly_income` (20), `round_down_to` (1000) |
-| Note | If the capped amount is below the product minimum (₹50,000), no counter-offer is possible; in practice this only happens when R3 has already declined |
+| Below minimum | If the cap is below the product minimum loan (₹50,000), no counter-offer is possible: R6 returns DECLINE with `ELIG_INCOME_LOW` (income too low for the minimum loan amount). With the default policy this only happens when R3 has already declined |
 
 When R6 caps, R4 is evaluated **only** on the capped amount (the amount that would actually be offered).
 
@@ -152,7 +152,7 @@ When R6 caps, R4 is evaluated **only** on the capped amount (the amount that wou
 | F3 | Identity mismatch | Assessment | PAN↔KYC name similarity `< 0.85`, **or** PAN↔KYC DOB differ, **or** applicant confirmed a PAN↔entered-name mismatch at the PAN step (EC-04) | REFER | `FRAUD_IDENTITY_MISMATCH` |
 | F4 | Income inconsistency | Assessment (only when AA consent approved) | `abs(declared − verified) / declared > 0.30` | REFER | `FRAUD_INCOME_MISMATCH` |
 
-Name similarity is a normalised token-sort ratio in `[0, 1]` (case, punctuation and extra spaces ignored). Parameters (`window_hours`, `max_applications`, `name_similarity_min`, `income_diff_max`) are editable like eligibility rules.
+Name similarity is a normalised token-sort ratio in `[0, 1]` (case, punctuation, extra spaces and word order ignored). The EC-04 check at the PAN step uses the same `name_similarity_min` as F3. F1 has no parameters but can be switched off, which disables the PAN-step block. Parameters (`window_hours`, `max_applications`, `name_similarity_min`, `income_diff_max`) are editable like eligibility rules.
 
 **Fraud reasoning is never shown to applicants.** Any `FRAUD_*` code maps to "We need to review a few details."
 
@@ -226,6 +226,8 @@ Analysts see the full internal explanation for every code.
 3. Writes both values into `policy/seed_policy.json` with the `source` field: *"Illustrative calibration to the 88.2% approval-rate scenario from the credit-risk cut-off project; does not establish equivalent risk."*
 4. Reports the R2 pass rate and the overall approval rate these thresholds actually produce on the 500 synthetic applications.
 
+**Phase 3 run (actual output).** `approve_threshold = 631`, `refer_floor = 608`. On the 200,000-score population sample (seed 882) that passes 88.4% on R2, refers 5.0% and declines 6.6%. The pass share is 88.4% rather than exactly 88.2% because scores are whole numbers. Step 4 (rates on the 500 synthetic applications) runs after Phase 6 generates `reports/simulation_results.csv`.
+
 **Expected difference, stated in advance.** The 500 test applications are deliberately skewed toward edge cases (see the persona plan in [DECISIONS.md D-29](DECISIONS.md)), and approval also depends on R1, R3–R6 and fraud checks. The overall approval rate on the 500 will therefore **not** equal 88.2%; the script reports whatever the real figure is.
 
 **Limits.**
@@ -238,6 +240,8 @@ Analysts see the full internal explanation for every code.
 ## 7. Pricing and KFS-style disclosure
 
 ### Configuration (`PRICING`, illustrative defaults)
+
+PRICING is a versioned policy row like the rules, so rates, fee, loan amount and tenure limits, offer validity and cooling-off can all change without a deploy. Detail validation (`PATCH /applications/{id}`) checks amount and tenure against the current PRICING row; an existing offer keeps the PRICING of its decision's policy version (EC-15).
 
 | Bureau score band | Annual interest rate |
 |---|---|

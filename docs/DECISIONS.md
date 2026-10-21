@@ -118,6 +118,18 @@ Each entry records the context, the decision, the alternatives considered and th
 - **Decision:** Keep providers realistic: a mock bureau or AA never sees the applicant's declared details. Free-typed PANs therefore usually trigger the EC-04 name confirmation and often F4. The one-click demo personas (Phase 4) register fixtures so each outcome is reproducible, and the landing page will say so.
 - **Trade-off:** A visitor who ignores the personas sees more referrals than a real applicant would; in return the mocks behave like independent providers rather than echoing input.
 
+### D-32 — Product limits live in the PRICING policy
+- **Decision:** Loan amount and tenure limits, processing fee, rate bands, offer validity, cooling-off and the grievance contact are one versioned `PRICING` row, edited like a rule. The 6-rule count is unchanged: PRICING is configuration, not an eligibility rule.
+- **Why:** A policy manager can change the product without a deploy, and every offer still records the exact version it was priced under (EC-15).
+
+### D-33 — R6 cap below the minimum loan declines with `ELIG_INCOME_LOW`
+- **Decision:** If 20x income is below the ₹50,000 minimum loan, R6 cannot make a counter-offer and returns DECLINE with `ELIG_INCOME_LOW`.
+- **Why:** The applicant's problem is income, so the existing income code explains it; no new reason code is needed. With the default policy, R3 has already declined such applicants.
+
+### D-34 — EC-04 shares F3's threshold; F1 can be switched off
+- **Decision:** The PAN-step name check (EC-04) uses F3's `name_similarity_min`, so one setting governs "names match". Turning F1 off removes the duplicate-PAN block (it is F1's only setting).
+- **Why:** Two separate thresholds for the same question would drift apart.
+
 ### D-18 — E-sign and disbursal are simulated internal steps, not integrations
 - **Decision:** Mock e-sign and mock disbursal are steps inside the lender's workflow, logged as events, not adapters under `/mock/*`.
 - **Why:** The scope specifies exactly 4 mocked integrations (PAN, KYC, bureau, AA). Counting e-sign and disbursal as integrations would change that claim.

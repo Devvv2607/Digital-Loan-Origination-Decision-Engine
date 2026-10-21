@@ -1,7 +1,7 @@
 # API Contracts (draft)
 
 > Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.
-> Status: **Phase 0 draft.** The generated OpenAPI spec at `/docs` (Swagger) and `/openapi.json` becomes the source of truth once the backend exists; this file will be reconciled with it in Phase 7.
+> Status: **Phase 3 draft** (endpoints through the decision engine and offer flow are implemented; ops referrals, metrics and demo reset arrive in Phase 5). The generated OpenAPI spec at `/docs` (Swagger) and `/openapi.json` becomes the source of truth once the backend exists; this file will be reconciled with it in Phase 7.
 
 All example PANs, phone numbers and names are synthetic. Example PANs use the prefix `ZZZPZ` and example phones start `90000`.
 
@@ -395,7 +395,8 @@ Applicant view = the `assess` response. Ops/admin view adds internal detail:
 ```
 `200`
 ```json
-{"offer_id": "o-5e7f...", "status": "ACCEPTED", "policy_version": 3, "next_step": "ESIGN"}
+{"offer_id": "o-5e7f...", "status": "ACCEPTED", "policy_version": 3, "application_state": "APPROVED",
+ "esign_reference": null, "disbursal_reference": null, "net_disbursed": null, "cooling_off_days": 3, "next_step": "ESIGN"}
 ```
 Errors: `400 KFS_NOT_ACKNOWLEDGED`, `409 OFFER_EXPIRED` (application moves to `EXPIRED`), `409 INVALID_STATE_TRANSITION`.
 
@@ -405,14 +406,16 @@ Errors: `400 KFS_NOT_ACKNOWLEDGED`, `409 OFFER_EXPIRED` (application moves to `E
 ```
 `200`
 ```json
-{"offer_id": "o-5e7f...", "status": "ESIGNED", "esign_reference": "MOCK-ESIGN-7Q2D", "next_step": "DISBURSE"}
+{"offer_id": "o-5e7f...", "status": "ESIGNED", "policy_version": 3, "application_state": "APPROVED",
+ "esign_reference": "MOCK-ESIGN-7Q2D", "disbursal_reference": null, "net_disbursed": null, "cooling_off_days": 3, "next_step": "DISBURSE"}
 ```
 Errors: `409 INVALID_STATE_TRANSITION` (offer not `ACCEPTED`), `409 OFFER_EXPIRED`.
 
 ### `POST /applications/{id}/disburse` — applicant-initiated, idempotent *(added)*
 `200`
 ```json
-{"state": "DISBURSED", "net_disbursed": 490000, "disbursal_reference": "MOCK-DISB-3K8P", "cooling_off_until": "2026-10-23T09:10:00Z"}
+{"offer_id": "o-5e7f...", "status": "ESIGNED", "policy_version": 3, "application_state": "DISBURSED",
+ "esign_reference": "MOCK-ESIGN-7Q2D", "disbursal_reference": "MOCK-DISB-3K8P", "net_disbursed": 490000, "cooling_off_days": 3, "next_step": "DONE"}
 ```
 Errors: `409 INVALID_STATE_TRANSITION` (offer not `ESIGNED`).
 

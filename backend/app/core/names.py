@@ -1,4 +1,4 @@
-"""Name normalisation and fuzzy matching (EC-04 and fraud check F3).
+"""Name normalisation and fuzzy matching (EC-04 and fraud check F3; threshold in F3 policy).
 
 Similarity is a token-sort ratio in [0, 1]: case, punctuation, extra spaces and
 word order are ignored, so "VERMA, Asha" matches "Asha Verma" exactly.
@@ -6,9 +6,6 @@ word order are ignored, so "VERMA, Asha" matches "Asha Verma" exactly.
 
 import re
 from difflib import SequenceMatcher
-
-# Default threshold; from Phase 3 the value comes from fraud check F3's policy parameters.
-NAME_SIMILARITY_MIN = 0.85
 
 
 def normalize_name(name: str | None) -> str:

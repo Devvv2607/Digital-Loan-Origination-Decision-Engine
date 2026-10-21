@@ -1,0 +1,209 @@
+{
+  "policy_version": 1,
+  "source": "Illustrative calibration to the 88.2% approval-rate scenario from the credit-risk cut-off project; does not establish equivalent risk.",
+  "reference_model": {
+    "description": "Logistic-regression points scorecard on Home Credit data (separate project)",
+    "repository": "https://github.com/Devvv2607/Credit-Risk-Segmentation-Approval-Cut-off-Strategy",
+    "live_site": "https://credit-risk-segmentation-approval-c.vercel.app",
+    "score_scale": "Points scorecard: base 600 at 50:1 good:bad odds, 20 points to double the odds (PDO 20)",
+    "cutoff_score": 535,
+    "approval_rate_on_test_set": 0.882,
+    "payment_difficulty_rate_approved": 0.059,
+    "payment_difficulty_rate_baseline": 0.0807,
+    "note": "Metadata only. The reference score is never compared with or converted into a bureau score."
+  },
+  "calibration": {
+    "population": "Normal(mu=720, sigma=75) clipped to 300-900; NTC excluded",
+    "sample_size": 200000,
+    "random_seed": 882,
+    "reference_approval_rate": 0.882,
+    "refer_band_width": 0.05,
+    "approve_threshold": 631,
+    "refer_floor": 608,
+    "achieved_pass_share": 0.8842,
+    "achieved_refer_share": 0.0497,
+    "achieved_decline_share": 0.0661
+  },
+  "rules": [
+    {
+      "rule_id": "R1",
+      "kind": "ELIGIBILITY",
+      "name": "Age",
+      "enabled": true,
+      "parameters": {
+        "min_age_now": 21,
+        "max_age_at_maturity": 60
+      },
+      "outcome_on_fail": "DECLINE",
+      "reason_codes": [
+        "ELIG_AGE"
+      ]
+    },
+    {
+      "rule_id": "R2",
+      "kind": "ELIGIBILITY",
+      "name": "Credit score",
+      "enabled": true,
+      "parameters": {
+        "approve_threshold": 631,
+        "refer_floor": 608,
+        "ntc_outcome": "REFER",
+        "calibration": {
+          "reference_approval_rate": 0.882,
+          "refer_band_width": 0.05,
+          "method": "quantiles of a seeded sample from the mock bureau population distribution"
+        }
+      },
+      "outcome_on_fail": "DECLINE",
+      "reason_codes": [
+        "ELIG_SCORE_LOW",
+        "ELIG_SCORE_BORDERLINE",
+        "ELIG_THIN_FILE"
+      ]
+    },
+    {
+      "rule_id": "R3",
+      "kind": "ELIGIBILITY",
+      "name": "Minimum income",
+      "enabled": true,
+      "parameters": {
+        "min_monthly_income": 25000
+      },
+      "outcome_on_fail": "DECLINE",
+      "reason_codes": [
+        "ELIG_INCOME_LOW"
+      ]
+    },
+    {
+      "rule_id": "R4",
+      "kind": "ELIGIBILITY",
+      "name": "FOIR (fixed obligations to income)",
+      "enabled": true,
+      "parameters": {
+        "pass_max": 0.5,
+        "refer_max": 0.6
+      },
+      "outcome_on_fail": "DECLINE",
+      "reason_codes": [
+        "ELIG_FOIR_HIGH"
+      ]
+    },
+    {
+      "rule_id": "R5",
+      "kind": "ELIGIBILITY",
+      "name": "Employment stability",
+      "enabled": true,
+      "parameters": {
+        "min_months_salaried": 6,
+        "min_months_self_employed": 24
+      },
+      "outcome_on_fail": "REFER",
+      "reason_codes": [
+        "ELIG_EMPLOYMENT_TENURE"
+      ]
+    },
+    {
+      "rule_id": "R6",
+      "kind": "ELIGIBILITY",
+      "name": "Loan-to-income cap",
+      "enabled": true,
+      "parameters": {
+        "max_multiple_of_monthly_income": 20,
+        "round_down_to": 1000
+      },
+      "outcome_on_fail": null,
+      "reason_codes": [
+        "INFO_AMOUNT_CAPPED",
+        "ELIG_INCOME_LOW"
+      ]
+    },
+    {
+      "rule_id": "F1",
+      "kind": "FRAUD",
+      "name": "Duplicate PAN",
+      "enabled": true,
+      "parameters": {},
+      "outcome_on_fail": null,
+      "reason_codes": [
+        "FRAUD_DUPLICATE_PAN"
+      ]
+    },
+    {
+      "rule_id": "F2",
+      "kind": "FRAUD",
+      "name": "Application velocity",
+      "enabled": true,
+      "parameters": {
+        "window_hours": 24,
+        "max_applications": 3
+      },
+      "outcome_on_fail": "REFER",
+      "reason_codes": [
+        "FRAUD_VELOCITY"
+      ]
+    },
+    {
+      "rule_id": "F3",
+      "kind": "FRAUD",
+      "name": "Identity mismatch",
+      "enabled": true,
+      "parameters": {
+        "name_similarity_min": 0.85
+      },
+      "outcome_on_fail": "REFER",
+      "reason_codes": [
+        "FRAUD_IDENTITY_MISMATCH"
+      ]
+    },
+    {
+      "rule_id": "F4",
+      "kind": "FRAUD",
+      "name": "Income inconsistency",
+      "enabled": true,
+      "parameters": {
+        "income_diff_max": 0.3
+      },
+      "outcome_on_fail": "REFER",
+      "reason_codes": [
+        "FRAUD_INCOME_MISMATCH"
+      ]
+    },
+    {
+      "rule_id": "PRICING",
+      "kind": "PRICING",
+      "name": "Pricing and product limits",
+      "enabled": true,
+      "parameters": {
+        "rate_bands": [
+          {
+            "min_score": 800,
+            "annual_rate": 10.99
+          },
+          {
+            "min_score": 750,
+            "annual_rate": 12.99
+          },
+          {
+            "min_score": 700,
+            "annual_rate": 14.99
+          },
+          {
+            "min_score": 650,
+            "annual_rate": 17.99
+          }
+        ],
+        "fallback_rate": 21.99,
+        "processing_fee_rate": 0.02,
+        "loan_amount_min": 50000,
+        "loan_amount_max": 2500000,
+        "tenure_months_min": 12,
+        "tenure_months_max": 60,
+        "offer_validity_days": 7,
+        "cooling_off_days": 3,
+        "grievance_contact": "grievance@lendwise.example"
+      },
+      "outcome_on_fail": null,
+      "reason_codes": []
+    }
+  ]
+}

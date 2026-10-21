@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import FrozenClock
 from app.core.config import load_settings
 from app.core.db import get_db
+from app.engine.policy import seed_policy
 from app.main import create_app
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -77,6 +78,8 @@ def engine(settings):
     cfg.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
     cfg.attributes["configure_logger"] = False
     command.upgrade(cfg, "head")
+    with Session(eng) as s:
+        seed_policy(s, START)  # policy v1 from backend/policy/seed_policy.json, committed once
     yield eng
     eng.dispose()
 

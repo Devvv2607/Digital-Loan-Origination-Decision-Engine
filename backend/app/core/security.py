@@ -121,3 +121,18 @@ def require_roles(*roles: Role):
 require_applicant = require_roles(Role.APPLICANT)
 require_admin = require_roles(Role.ADMIN)
 require_ops_or_admin = require_roles(Role.OPS, Role.ADMIN)
+
+
+def require_internal_read(
+    principal: Principal | None = Depends(get_optional_principal),
+    settings: Settings = Depends(get_settings_dep),
+) -> Principal | None:
+    """Read access to internal screens: ops/admin, or anyone when DEMO_READ_ONLY is on (D-19).
+    Returns None for an anonymous read-only viewer."""
+    if principal is None:
+        if settings.demo_read_only:
+            return None
+        raise AppError(401, "UNAUTHENTICATED", "Please sign in to continue.")
+    if principal.role not in (Role.OPS, Role.ADMIN):
+        raise AppError(403, "FORBIDDEN", "You don't have access to this page.")
+    return principal

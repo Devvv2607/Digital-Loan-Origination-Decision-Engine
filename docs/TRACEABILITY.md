@@ -2,6 +2,7 @@
 
 > Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.
 > Status: **Phase 0 skeleton.** Endpoints and screens are planned; test names are planned and marked ⏳. Each row is marked ✅ only when the test exists and passes. Completed in Phase 7.
+> Phase 3 progress: all 15 edge cases have passing `test_ec_XX` tests; every rule, fraud check, precedence and pricing row is covered (`tests/test_rules_and_checks.py`, `test_decision_engine.py`, `test_pricing.py`, `test_assessment.py`, `test_offers.py`, `test_policy.py`).
 > Phase 2 progress: EC-03, EC-04, EC-05, EC-06 and EC-11 are covered by passing tests (`tests/test_verification.py`); the bureau retry path for EC-07 is tested at provider level and gets its end-to-end test with assessment in Phase 3.
 > Phase 1 progress: EC-01, EC-02, EC-14 and the state machine are covered by passing tests; US-01/US-02/US-09 endpoints exist (stories stay ⏳ until their screens exist).
 
@@ -32,32 +33,32 @@
 | EC-04 | `services/verification.py` (`verify_pan`) | `test_ec_04_pan_name_mismatch_requires_confirmation_and_feeds_f3` | ✅ |
 | EC-05 | `integrations/calls.py` (`call_with_retries`), `services/verification.py` (`complete_kyc`) | `test_ec_05_kyc_timeout_retries_then_stays_pending` | ✅ |
 | EC-06 | `services/verification.py` (`complete_kyc`) | `test_ec_06_kyc_incomplete_asks_retry` | ✅ |
-| EC-07 | `engine/decision.py` (validate step) | `test_ec_07_bureau_timeout_refers_with_sys_code` | ⏳ |
-| EC-08 | `engine/rules/r2_credit_score.py` | `test_ec_08_ntc_refers_not_declines` | ⏳ |
-| EC-09 | `engine/decision.py` (resolve inputs) | `test_ec_09_aa_declined_caps_at_referred` | ⏳ |
-| EC-10 | `engine/fraud/f4_income.py`, resolve inputs | `test_ec_10_income_mismatch_uses_verified_and_flags_f4` | ⏳ |
+| EC-07 | `services/verification.py` (`fetch_bureau_report`), `engine/decision.py` (step 1) | `test_ec_07_bureau_timeout_refers_with_sys_code` | ✅ |
+| EC-08 | `engine/rules.py` (`r2_credit_score`) | `test_ec_08_ntc_refers_not_declines` | ✅ |
+| EC-09 | `engine/decision.py` (step 2) | `test_ec_09_aa_declined_caps_at_referred` | ✅ |
+| EC-10 | `engine/fraud/checks.py` (`f4_income`), `engine/decision.py` (step 2) | `test_ec_10_income_mismatch_uses_verified_and_flags_f4` | ✅ |
 | EC-11 | `engine/fraud/f1_duplicate_pan.py`, `services/verification.py` | `test_ec_11_duplicate_pan_blocked_with_409` | ✅ |
-| EC-12 | `engine/fraud/f2_velocity.py` | `test_ec_12_velocity_flags_fourth_application` | ⏳ |
-| EC-13 | `engine/rules/r1_age.py` | `test_ec_13_age_out_of_range_declines` | ⏳ |
+| EC-12 | `engine/fraud/checks.py` (`f2_velocity`), `services/assessment.py` (`velocity_counts`) | `test_ec_12_velocity_flags_fourth_application` | ✅ |
+| EC-13 | `engine/rules.py` (`r1_age`) | `test_ec_13_age_out_of_range_declines` | ✅ |
 | EC-14 | `services/expiry.py` | `test_ec_14_abandoned_application_expires_after_30_days` | ✅ |
-| EC-15 | `services/offers.py`, `engine/policy.py` | `test_ec_15_acceptance_honours_decision_time_policy` | ⏳ |
+| EC-15 | `services/offers.py`, `engine/policy.py` (versioned load) | `test_ec_15_acceptance_honours_decision_time_policy` | ✅ |
 
 ## 3. Rules and fraud checks → tests
 
 | ID | Code (planned) | Tests (planned) | Status |
 |---|---|---|---|
-| R1 Age | `engine/rules/r1_age.py` | boundary: day before/on 21st birthday; maturity on/after 60th birthday | ⏳ |
-| R2 Credit score | `engine/rules/r2_credit_score.py` | at/below approve threshold; at/below refer floor; NTC | ⏳ |
-| R3 Income | `engine/rules/r3_income.py` | ₹24,999 / ₹25,000; verified vs declared source | ⏳ |
-| R4 FOIR | `engine/rules/r4_foir.py` | 0.50 / 0.5001 / 0.60 / 0.6001 | ⏳ |
-| R5 Employment | `engine/rules/r5_employment.py` | 5/6 months salaried; 23/24 months self-employed | ⏳ |
-| R6 LTI cap | `engine/rules/r6_lti.py` | at cap; above cap → counter-offer passes R4; above cap → R4 still fails | ⏳ |
-| F1 Duplicate PAN | `engine/fraud/f1_duplicate_pan.py` | active duplicate blocked; terminal duplicate allowed | ⏳ |
-| F2 Velocity | `engine/fraud/f2_velocity.py` | 3rd passes, 4th flagged; by phone; by device; outside 24h | ⏳ |
-| F3 Identity | `engine/fraud/f3_identity.py` | similarity 0.84 / 0.85; DOB mismatch; confirmed EC-04 mismatch | ⏳ |
-| F4 Income | `engine/fraud/f4_income.py` | 30% / 30.01%; skipped when AA declined | ⏳ |
-| Precedence | `engine/decision.py` | DECLINE beats REFER; REFER beats APPROVE; primary code ordering | ⏳ |
-| Pricing | `engine/pricing.py`, `engine/kfs.py` | EMI/APR reference values; invariants; zero/high fee; 12/60 months | ⏳ |
+| R1 Age | `engine/rules.py` | boundary: day before/on 21st birthday; maturity on/after 60th birthday | ✅ |
+| R2 Credit score | `engine/rules.py` | at/below approve threshold; at/below refer floor; NTC | ✅ |
+| R3 Income | `engine/rules.py` | ₹24,999 / ₹25,000; verified vs declared source | ✅ |
+| R4 FOIR | `engine/rules.py` | 0.50 / 0.5001 / 0.60 / 0.6001 | ✅ |
+| R5 Employment | `engine/rules.py` | 5/6 months salaried; 23/24 months self-employed | ✅ |
+| R6 LTI cap | `engine/rules.py, engine/decision.py` | at cap; above cap → counter-offer passes R4; above cap → R4 still fails | ✅ |
+| F1 Duplicate PAN | `engine/fraud/f1_duplicate_pan.py` | active duplicate blocked; terminal duplicate allowed | ✅ |
+| F2 Velocity | `engine/fraud/checks.py` | 3rd passes, 4th flagged; by phone; by device; outside 24h | ✅ |
+| F3 Identity | `engine/fraud/checks.py` | similarity 0.84 / 0.85; DOB mismatch; confirmed EC-04 mismatch | ✅ |
+| F4 Income | `engine/fraud/checks.py` | 30% / 30.01%; skipped when AA declined | ✅ |
+| Precedence | `engine/decision.py` | DECLINE beats REFER; REFER beats APPROVE; primary code ordering | ✅ |
+| Pricing | `engine/pricing.py, services/offers.py` | EMI/APR reference values; invariants; zero/high fee; 12/60 months | ✅ |
 | State machine | `state_machine/machine.py` | all 11 allowed + 53 rejected pairs (`tests/test_state_machine.py`) | ✅ |
 
 ## 4. Acceptance checklist mapping

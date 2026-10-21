@@ -3,17 +3,20 @@
 Run locally:  uvicorn app.main:create_app --factory --reload
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import admin, applications, auth, health, mock, verification
+from app.api import admin, applications, auth, decisions, health, mock, verification
 from app.core.clock import Clock
 from app.core.config import Settings, load_settings
 from app.core.db import make_engine, make_sessionmaker
 from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
 from app.core.rate_limit import RateLimiter
+from app.engine.policy import seed_policy
 
 DISCLAIMER = (
     "**Demo prototype. Simulated integrations and synthetic data. "
@@ -27,10 +30,19 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     settings = settings or load_settings()  # fails fast on missing/invalid env vars
     configure_logging(settings.log_level)
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        if settings.auto_seed_policy:
+            # Load policy/seed_policy.json as version 1 if the policy table is empty.
+            with app.state.sessionmaker() as db:
+                seed_policy(db, app.state.clock.now())
+        yield
+
     app = FastAPI(
         title="Lendwise (Demo) — Loan Origination API",
         description=DISCLAIMER,
         version=__version__,
+        lifespan=lifespan,
     )
     engine = make_engine(settings.database_url)
     app.state.settings = settings
@@ -53,6 +65,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     app.include_router(auth.router)
     app.include_router(applications.router)
     app.include_router(verification.router)
+    app.include_router(decisions.router)
     app.include_router(admin.router)
     app.include_router(mock.router)
     return app
