@@ -136,7 +136,7 @@ export function ApplyFlow() {
   return (
     <div className="mx-auto w-full max-w-[38rem] px-4 py-8 sm:py-10">
       <Progress stage={stage} offerPhase={offerPhase} />
-      {session.persona && stage !== "loading" ? <PersonaHint ctx={ctx} /> : null}
+      {session.persona && stage !== "loading" ? <PersonaHint ctx={ctx} expanded={stage === "phone"} /> : null}
       <div className="mt-6">
         <ErrorNotice message={error} />
         {stage === "loading" ? <p className="text-muted-foreground">Loading your application</p> : null}
@@ -154,23 +154,27 @@ export function ApplyFlow() {
   );
 }
 
-function PersonaHint({ ctx }: { ctx: FlowContext }) {
+function PersonaHint({ ctx, expanded }: { ctx: FlowContext; expanded: boolean }) {
   const p = ctx.session.persona!;
   return (
-    <aside
+    <details
+      open={expanded}
       aria-label="Demo applicant"
-      className="mt-5 rounded-lg border border-primary/25 bg-accent px-4 py-3 text-sm text-accent-foreground"
+      className="group mt-5 rounded-lg border border-primary/25 bg-accent text-sm text-accent-foreground"
     >
-      <p>
-        <span className="font-semibold">
-          Applying as {p.details.full_name} ({p.label.toLowerCase()}).
-        </span>{" "}
-        The forms are filled in for you; just continue through each step.
-      </p>
-      <p className="mt-1">
-        <span className="text-accent-foreground/80">What should happen: </span>
-        {p.expected_outcome}
-      </p>
-    </aside>
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 [&::-webkit-details-marker]:hidden">
+        <span>
+          <span className="font-semibold">Applying as {p.details.full_name}</span> ({p.label.toLowerCase()})
+        </span>
+        <span className="shrink-0 text-xs underline underline-offset-2 group-open:hidden">What should happen?</span>
+      </summary>
+      <div className="space-y-1 px-4 pb-3">
+        <p>The forms are filled in for you; just continue through each step.</p>
+        <p>
+          <span className="text-accent-foreground/80">What should happen: </span>
+          {p.expected_outcome}
+        </p>
+      </div>
+    </details>
   );
 }

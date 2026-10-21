@@ -78,7 +78,7 @@ export function PersonaList() {
                 type="button"
                 onClick={() => start(p.persona_id)}
                 disabled={starting !== null}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-primary/40 px-4 text-sm font-medium text-primary hover:bg-accent disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-primary/40 px-4 text-sm font-medium text-primary hover:bg-accent disabled:opacity-60"
               >
                 {starting === p.persona_id ? (
                   <>

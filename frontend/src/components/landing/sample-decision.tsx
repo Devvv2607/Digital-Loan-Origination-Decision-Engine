@@ -20,9 +20,9 @@ export function SampleDecision() {
       </div>
       <ul className="mt-4 divide-y divide-border border-t border-border text-sm">
         {checks.map(([name, detail]) => (
-          <li key={name} className="flex items-baseline justify-between gap-4 py-2.5">
-            <span className="font-medium">{name}</span>
-            <span className="text-right text-muted-foreground">{detail}</span>
+          <li key={name} className="py-2.5 sm:flex sm:items-baseline sm:justify-between sm:gap-4">
+            <span className="block font-medium">{name}</span>
+            <span className="block text-muted-foreground sm:text-right">{detail}</span>
           </li>
         ))}
       </ul>

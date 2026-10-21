@@ -110,7 +110,7 @@ export function SimulatedCode({ code, onUse, label }: { code: string; onUse: () 
         {label} <span className="figures ml-1 text-base font-semibold tracking-[0.2em]">{code}</span>
         <span className="block text-xs text-muted-foreground">Simulated. No SMS was sent.</span>
       </p>
-      <Button type="button" variant="outline" className="h-9" onClick={onUse}>
+      <Button type="button" variant="outline" className="h-11 px-4" onClick={onUse}>
         Fill in the code
       </Button>
     </div>

@@ -42,7 +42,7 @@ export function ConsentStep({ ctx }: { ctx: FlowContext }) {
     >
       <dl className="divide-y divide-border rounded-lg border border-border bg-card text-[0.95rem]">
         {TERMS.map(([k, v]) => (
-          <div key={k} className="grid grid-cols-[6.5rem_1fr] gap-3 px-4 py-3">
+          <div key={k} className="grid grid-cols-[5rem_1fr] gap-3 px-4 py-3 sm:grid-cols-[6.5rem_1fr]">
             <dt className="text-muted-foreground">{k}</dt>
             <dd>{v}</dd>
           </div>

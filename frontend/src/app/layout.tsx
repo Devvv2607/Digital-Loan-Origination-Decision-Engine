@@ -30,11 +30,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <DemoBanner />
         <header className="border-b border-border bg-card">
           <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4">
-            <Link href="/" className="text-[1.05rem] font-semibold tracking-tight text-foreground">
+            <Link href="/" className="flex h-11 items-center gap-1 text-[1.05rem] font-semibold tracking-tight text-foreground">
               Lendwise <span className="font-normal text-muted-foreground">(Demo)</span>
             </Link>
             <nav aria-label="Main" className="flex items-center gap-5 text-sm">
-              <Link href="/apply" className="text-foreground hover:text-primary">
+              <Link href="/apply" className="flex h-11 items-center px-2 text-foreground hover:text-primary">
                 Apply
               </Link>
             </nav>

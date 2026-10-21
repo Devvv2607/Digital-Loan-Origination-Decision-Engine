@@ -182,7 +182,7 @@ export function PhoneStep({ ctx }: { ctx: FlowContext }) {
             </ActionButton>
             <button
               type="button"
-              className="text-sm font-medium text-primary underline underline-offset-2 disabled:opacity-50"
+              className="min-h-11 self-start text-sm font-medium text-primary underline underline-offset-2 disabled:opacity-50 sm:self-auto"
               onClick={() => sendCode()}
               disabled={busy !== null}
             >

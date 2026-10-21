@@ -76,17 +76,18 @@ function Kfs({ offer, ctx, onDone, onExpired }: { offer: Offer; ctx: FlowContext
     }
   }
 
-  const rows: [string, string, boolean?][] = [
-    ["Loan amount", inr(offer.loan_amount)],
-    ["Processing fee", inr(offer.total_fees)],
-    ["Amount paid to you", inr(offer.net_disbursal), true],
-    ["Repayment period", months(offer.tenure_months)],
-    ["Interest rate", `${pct(offer.interest_rate)} a year (reducing balance)`],
-    ["Annual percentage rate (APR)", `${pct(offer.apr)} a year, including the fee`, true],
-    ["Monthly instalment (EMI)", inr(offer.emi), true],
-    ["Total interest", inr(offer.total_interest)],
-    ["Total fees", inr(offer.total_fees)],
-    ["Total you repay", inr(offer.total_repayment), true],
+  // [label, figure, note under the figure, emphasised]
+  const rows: [string, string, string | null, boolean][] = [
+    ["Loan amount", inr(offer.loan_amount), null, false],
+    ["Processing fee", inr(offer.total_fees), "Deducted before payout", false],
+    ["Amount paid to you", inr(offer.net_disbursal), null, true],
+    ["Repayment period", months(offer.tenure_months), `${offer.tenure_months} monthly instalments`, false],
+    ["Interest rate", pct(offer.interest_rate), "A year, on the reducing balance", false],
+    ["APR", pct(offer.apr), "A year, including the fee", true],
+    ["Monthly instalment (EMI)", inr(offer.emi), null, true],
+    ["Total interest", inr(offer.total_interest), null, false],
+    ["Total fees", inr(offer.total_fees), null, false],
+    ["Total you repay", inr(offer.total_repayment), null, true],
   ];
 
   return (
@@ -104,10 +105,17 @@ function Kfs({ offer, ctx, onDone, onExpired }: { offer: Offer; ctx: FlowContext
           <p className="mt-1 font-sans text-xs text-muted-foreground">{offer.disclaimer}</p>
         </header>
         <dl className="divide-y divide-border px-5">
-          {rows.map(([k, v, strong]) => (
-            <div key={k} className="grid grid-cols-[1fr_auto] gap-4 py-2.5 text-[1rem]">
-              <dt className={strong ? "font-semibold" : undefined}>{k}</dt>
-              <dd className={`figures text-right ${strong ? "font-semibold" : ""}`}>{v}</dd>
+          {rows.map(([k, v, note, strong]) => (
+            <div key={k} className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 py-2.5 text-[1rem]">
+              <dt className={strong ? "font-semibold" : undefined}>
+                {k === "APR" ? <abbr title="Annual percentage rate" className="no-underline">APR</abbr> : k}
+              </dt>
+              <dd className={`figures text-right whitespace-nowrap ${strong ? "font-semibold" : ""}`}>{v}</dd>
+              {note ? (
+                <dd className="col-span-2 -mt-0.5 font-sans text-xs text-muted-foreground sm:col-start-2 sm:text-right">
+                  {note}
+                </dd>
+              ) : null}
             </div>
           ))}
         </dl>
@@ -118,8 +126,9 @@ function Kfs({ offer, ctx, onDone, onExpired }: { offer: Offer; ctx: FlowContext
             <ChevronDown className="size-4 transition-transform group-data-[panel-open]:rotate-180" aria-hidden />
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="max-h-72 overflow-auto px-5 pb-4">
-              <table className="figures w-full font-sans text-sm">
+            <p className="px-5 pb-2 font-sans text-xs text-muted-foreground sm:hidden">Scroll sideways to see every column.</p>
+            <div className="max-h-72 overflow-auto px-5 pb-4" tabIndex={0} role="region" aria-label="Repayment schedule">
+              <table className="figures w-full min-w-[30rem] font-sans text-sm">
                 <caption className="sr-only">Monthly repayment schedule</caption>
                 <thead className="sticky top-0 bg-card text-muted-foreground">
                   <tr>
