@@ -102,6 +102,7 @@ PAN → `ZZZPZ****Q`; phone → `******0001`. Applied in API responses to non-ow
 | `POST /admin/demo/reset` | "Reset demo data" admin action (§8b) |
 | `POST /admin/jobs/expire` | Bulk expiry for EC-14 / offer expiry; usable by a scheduler and tests |
 | `PUT /mock/profiles/{pan}` | Registers deterministic mock fixtures for demo personas and the 500-application simulation |
+| `GET /demo/personas`, `POST /demo/personas/{id}` | One-click demo personas on the landing page (only when `DEMO_MODE=true`; see D-36) |
 
 ---
 
@@ -557,6 +558,26 @@ Query: `from`, `to` (ISO dates, optional).
 ```
 
 ---
+
+## 6b. Demo personas (`/demo/*`, tagged "Demo (simulated)"; public, rate-limited, `DEMO_MODE` only)
+
+### `GET /demo/personas`
+`200` → `{"items": [{"persona_id": "strong", "label": "Strong borrower", "applicant_name": "Asha Verma", "description": "...", "expected_outcome": "..."}]}`
+
+### `POST /demo/personas/{persona_id}`
+Registers a synthetic identity for a fresh PAN (or the standing duplicate PAN) and returns everything the frontend prefills:
+```json
+{
+  "persona_id": "strong", "label": "Strong borrower", "description": "...", "expected_outcome": "...",
+  "phone": "9000012345", "pan": "QXRPB4821K",
+  "details": {"full_name": "Asha Verma", "date_of_birth": "1994-03-12", "employment_type": "SALARIED",
+              "employer_name": "Example Systems Pvt Ltd", "months_in_current_job": 30,
+              "declared_monthly_income": 85000, "loan_amount": 500000, "tenure_months": 36,
+              "purpose": "HOME_RENOVATION"},
+  "aa_decision": "APPROVE"
+}
+```
+Persona ids: `strong`, `new-to-credit`, `high-foir`, `duplicate-pan`, `income-mismatch`. Errors: `404` (unknown persona, or demo mode off), `429`.
 
 ## 7. Mock integrations (`/mock/*`, tagged **"Mock providers (simulated)"** in Swagger)
 

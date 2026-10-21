@@ -131,6 +131,19 @@ Each entry records the context, the decision, the alternatives considered and th
 - **Decision:** The PAN-step name check (EC-04) uses F3's `name_similarity_min`, so one setting governs "names match". Turning F1 off removes the duplicate-PAN block (it is F1's only setting).
 - **Why:** Two separate thresholds for the same question would drift apart.
 
+### D-35 — Frontend on Next.js 15, Tailwind 4 and current shadcn/ui (deviation from "Next.js 14")
+- **Context:** The spec names Next.js 14. Every 14.x release, including the last (14.2.35), has open security advisories; npm audit listed 23, two rated critical for remote code execution, fixed only in Next 15.5.24+. The site is public.
+- **Decision (approved by the project owner):** Next.js 15 (latest 15.5.x) with React 19, App Router as specified. Tailwind 4 instead of 3, which removes Tailwind 3's vulnerable file-watcher chain; PostCSS is pinned to a patched version via npm `overrides`. shadcn/ui components come from the current shadcn CLI, which builds them on Base UI primitives.
+- **Remaining audit findings:** only the dev-only ESLint plugin chain (`eslint-config-next` -> `fast-glob` -> `micromatch` -> `braces`), which reads our own source files and never ships to the browser or server. Recorded here and in the README limitations.
+
+### D-36 — One-click personas get a fresh synthetic PAN per click
+- **Decision:** `POST /demo/personas/{id}` registers a mock fixture for a new random PAN on every click and returns prefilled details and a random demo phone number in a synthetic range (stored hashed; no SMS is sent). The Duplicate PAN persona reuses one PAN held by a standing demo application, which is touched on every use so it never expires. Enabled only when `DEMO_MODE=true`.
+- **Why:** If personas used fixed PANs, the second visitor to try "Strong borrower" while the first visitor's application was still active would hit the duplicate-PAN block. A test runs every persona through the real API to its promised outcome, so the landing page can't promise something the engine doesn't do.
+
+### D-37 — Applicant decision screen lists only checks that actually ran
+- **Decision:** The "What we checked" list shows journey facts (PAN verified, e-KYC complete, bank data shared or not, bureau report requested) plus the applicant-safe reasons. It never shows per-rule pass marks.
+- **Why:** When the bureau is down, credit rules are not evaluated (D-08); a per-rule checklist would imply they passed. Rule-level detail stays on the analyst view.
+
 ### D-18 — E-sign and disbursal are simulated internal steps, not integrations
 - **Decision:** Mock e-sign and mock disbursal are steps inside the lender's workflow, logged as events, not adapters under `/mock/*`.
 - **Why:** The scope specifies exactly 4 mocked integrations (PAN, KYC, bureau, AA). Counting e-sign and disbursal as integrations would change that claim.

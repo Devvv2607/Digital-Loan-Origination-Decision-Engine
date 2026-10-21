@@ -19,6 +19,7 @@ LIMITS: dict[str, tuple[int, int]] = {
     "login": (5, 60),
     "app_create": (10, 60),
     "mock": (30, 60),
+    "demo": (20, 60),
 }
 
 PROFILE_MULTIPLIER = {"default": 1, "simulation": 1000}
