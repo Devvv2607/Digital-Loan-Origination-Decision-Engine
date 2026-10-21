@@ -247,6 +247,6 @@ Real SMS, real e-sign or payment rails; Aadhaar numbers or biometric data (e-KYC
 
 ## 11. Open questions for review
 
-1. **Credit-risk project metadata:** the original scorecard's score scale and cut-off value, and the repository link, to record as metadata in the R2 seeding script (see [RULES.md §6](RULES.md#6-seeding-r2-from-the-credit-risk-cut-off-project)).
+1. ~~Credit-risk project metadata~~ — resolved in Phase 2: 535-point cut-off, 88.2% approval, scale base 600 at 50:1 odds / PDO 20 (see [RULES.md §6](RULES.md#6-seeding-r2-from-the-credit-risk-cut-off-project)).
 2. Confirm the interpretation that `KYC_PENDING` covers PAN, e-KYC **and** AA consent, so `UNDER_ASSESSMENT` is a short system-only state (see [DECISIONS.md D-02](DECISIONS.md)).
 3. Confirm the added endpoints listed in [API.md §0.8](API.md) (e-sign, disbursal, login, demo reset, expiry job, referral detail, mock fixtures).

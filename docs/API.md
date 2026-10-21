@@ -243,6 +243,7 @@ Repeat the call with `{"pan": "ZZZPZ1234Q", "name_confirmation": "USE_PAN_NAME"}
 ```json
 {"status": "INVALID", "message": "We couldn't verify this PAN. Please check and try again."}
 ```
+`200` — PAN service unreachable: `{"status": "UNAVAILABLE", "message": "We couldn't reach the PAN service. Please try again."}` (application stays `KYC_PENDING`).
 Errors:
 - `422 PAN_FORMAT_INVALID` (EC-03) — no provider call, no `integration_calls` row.
 - `409 APPLICATION_ALREADY_IN_PROGRESS` (EC-11) — neutral message: "An application with these details is already in progress. Please continue that application." Internally logs a `FRAUD_CHECK` event with `FRAUD_DUPLICATE_PAN`.
@@ -558,7 +559,7 @@ Query: `from`, `to` (ISO dates, optional).
 
 The backend calls these mocks **in-process** through adapter interfaces; the HTTP routes expose the same mock code for inspection in Swagger. All are deterministic: behaviour comes from registered fixtures (`PUT /mock/profiles/{pan}`), then from magic PAN suffixes, then from a hash of the PAN. Latency = `MOCK_LATENCY_MS`. Every call writes an `integration_calls` row with PAN/phone masked.
 
-**Magic PAN last letters** (override fixtures):
+**Magic PAN last letters** (apply only to PANs without a registered fixture; a fixture always wins):
 
 | Last letter | Effect |
 |---|---|
@@ -578,7 +579,7 @@ The backend calls these mocks **in-process** through adapter interfaces; the HTT
 
 ### `POST /mock/kyc/start` and `POST /mock/kyc/complete`
 Start: `{"pan": "ZZZPZ1234Q"}` → `{"kyc_session_id": "k-...", "status": "OTP_SENT", "demo_kyc_otp": "601245"}`
-Complete: `{"kyc_session_id": "k-...", "otp": "601245"}` →
+Complete: `{"kyc_session_id": "k-...", "pan": "ZZZPZ1234Q", "otp": "601245"}` (the mock is stateless, so the PAN is passed again) →
 ```json
 {"status": "COMPLETE", "name": "ASHA VERMA", "date_of_birth": "1994-03-12", "address": {"city": "Pune", "state": "MH", "pincode": "411001"}}
 ```
@@ -596,7 +597,7 @@ NTC: `{"ntc": true, "score": null, "existing_monthly_emis": 0, "active_loans": 0
 
 ### `POST /mock/aa/consent` and `POST /mock/aa/consent/{consent_id}/decision`
 Create: `{"pan": "ZZZPZ1234Q", "purpose": "LOAN_UNDERWRITING", "months": 6}` → `{"consent_id": "aa-c-...", "status": "PENDING"}`
-Decide: `{"decision": "APPROVE"}` →
+Decide: `{"pan": "ZZZPZ1234Q", "decision": "APPROVE"}` →
 ```json
 {
   "consent_id": "aa-c-...", "status": "APPROVED",
@@ -611,7 +612,7 @@ Decide: `{"decision": "APPROVE"}` →
 `{"decision": "DECLINE"}` → `{"consent_id": "aa-c-...", "status": "DECLINED"}`
 
 ### `PUT /mock/profiles/{pan}` — admin *(added)*
-Registers a deterministic fixture, like a provider sandbox test identity.
+Registers a deterministic fixture, like a provider sandbox test identity. Every block is optional except `pan_name` and `pan_dob`; omitted values fall back to the hash-derived profile. `kyc.behaviour` ∈ `OK|TIMEOUT|INCOMPLETE`, `bureau.behaviour` ∈ `OK|TIMEOUT|NTC`; `aa` takes `average_monthly_income` or six `income_credits`.
 ```json
 {
   "pan_name": "ASHA VERMA", "pan_dob": "1994-03-12", "pan_status": "VALID",

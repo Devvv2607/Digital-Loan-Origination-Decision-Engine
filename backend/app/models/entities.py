@@ -69,21 +69,23 @@ class Application(Base):
 
     # PAN verification (US-03). Synthetic PANs only; never logged unmasked.
     pan: Mapped[str | None] = mapped_column(String(10), index=True)
-    pan_status: Mapped[str] = mapped_column(String(16), default="NOT_STARTED")
+    pan_status: Mapped[str] = mapped_column(String(32), default="NOT_STARTED")
     pan_name: Mapped[str | None] = mapped_column(String(120))
     pan_dob: Mapped[date | None] = mapped_column(Date)
     pan_name_similarity: Mapped[float | None] = mapped_column(Float)
     pan_name_confirmation: Mapped[str | None] = mapped_column(String(24))
 
     # e-KYC (US-04)
-    kyc_status: Mapped[str] = mapped_column(String(16), default="NOT_STARTED")
+    kyc_status: Mapped[str] = mapped_column(String(32), default="NOT_STARTED")
     kyc_session_id: Mapped[str | None] = mapped_column(String(64))
     kyc_name: Mapped[str | None] = mapped_column(String(120))
     kyc_dob: Mapped[date | None] = mapped_column(Date)
     kyc_address: Mapped[dict | None] = mapped_column(JSONB)
+    # PAN name vs KYC name similarity, kept for fraud check F3 (never shown to the applicant).
+    kyc_pan_name_similarity: Mapped[float | None] = mapped_column(Float)
 
     # Account Aggregator (US-05)
-    aa_status: Mapped[str] = mapped_column(String(16), default="NOT_STARTED")
+    aa_status: Mapped[str] = mapped_column(String(32), default="NOT_STARTED")
     aa_consent_id: Mapped[str | None] = mapped_column(String(64))
     aa_average_monthly_income: Mapped[int | None] = mapped_column(Integer)
     aa_income_credits: Mapped[list | None] = mapped_column(JSONB)
@@ -244,6 +246,18 @@ class OtpAttempt(Base):
     locked_until: Mapped[datetime | None] = tz_datetime(nullable=True)
 
 
+class MockProfile(Base):
+    """Registered sandbox identities for the mock providers (docs/DECISIONS.md D-17)."""
+
+    __tablename__ = "mock_profiles"
+
+    pan: Mapped[str] = mapped_column(String(10), primary_key=True)
+    profile: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_by: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = tz_datetime()
+    updated_at: Mapped[datetime] = tz_datetime()
+
+
 class IdempotencyKey(Base):
     __tablename__ = "idempotency_keys"
     __table_args__ = (
@@ -267,6 +281,7 @@ __all__ = [
     "Decision",
     "IdempotencyKey",
     "IntegrationCall",
+    "MockProfile",
     "Offer",
     "OtpAttempt",
     "ReferralReview",

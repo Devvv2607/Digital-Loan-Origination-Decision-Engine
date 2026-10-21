@@ -28,7 +28,7 @@ Policy lives in the `rule_configs` table and is seeded from `backend/policy/seed
 ```json
 {
   "policy_version": 1,
-  "source": "Illustrative calibration to the 37.3% approval-rate scenario from the credit-risk cut-off project; does not establish equivalent risk.",
+  "source": "Illustrative calibration to the 88.2% approval-rate scenario from the credit-risk cut-off project; does not establish equivalent risk.",
   "rules": [
     {"rule_id": "R1", "kind": "ELIGIBILITY", "name": "Age", "enabled": true,
      "parameters": {"min_age_now": 21, "max_age_at_maturity": 60},
@@ -37,7 +37,7 @@ Policy lives in the `rule_configs` table and is seeded from `backend/policy/seed
      "parameters": {"approve_threshold": "<set by seed_policy_from_cutoff.py>",
                     "refer_floor": "<set by seed_policy_from_cutoff.py>",
                     "ntc_outcome": "REFER",
-                    "calibration": {"reference_approval_rate": 0.373, "refer_band_width": 0.15}},
+                    "calibration": {"reference_approval_rate": 0.882, "refer_band_width": 0.05}},
      "outcome_on_fail": "DECLINE",
      "reason_codes": ["ELIG_SCORE_LOW", "ELIG_SCORE_BORDERLINE", "ELIG_THIN_FILE"]}
   ]
@@ -214,20 +214,22 @@ Analysts see the full internal explanation for every code.
 
 ## 6. Seeding R2 from the credit-risk cut-off project
 
-**What the reference is.** A separate credit-risk project (a logistic-regression scorecard on Home Credit data) recommended a cut-off that approves the **top 37.3%** of applicants. That model's score scale is **not** the 300–900 bureau scale simulated here, so the cut-off is not transferable as a risk policy. It is used only as a **reference approval-rate scenario**.
+**What the reference is.** A separate credit-risk project ([repo](https://github.com/Devvv2607/Credit-Risk-Segmentation-Approval-Cut-off-Strategy) · [live site](https://credit-risk-segmentation-approval-c.vercel.app)) built a logistic-regression points scorecard on Home Credit data (base 600 points at 50:1 good:bad odds, 20 points to double the odds). It recommended a cut-off of **535 points**, which approved **88.2%** of its held-out test set with a 5.9% payment-difficulty rate (vs an 8.07% baseline). That model's points scale is **not** the 300–900 bureau scale simulated here, so the 535 cut-off is not transferable as a risk policy. It is used only as a **reference approval-rate scenario**.
 
 **What `scripts/seed_policy_from_cutoff.py` does** (Phase 3):
-1. Takes the reference approval rate (`0.373`) as input. Records the original model's score scale and threshold as **metadata only** in a separate `reference_model` block; that score is never compared with or converted into a bureau score.
+1. Takes the reference approval rate (`0.882`) as input. Records the original model's scale (base 600 at 50:1 odds, PDO 20), cut-off (535), test-set approval rate (88.2%), payment-difficulty rates (5.9% vs 8.07% baseline) and repository link as **metadata only** in a separate `reference_model` block; that score is never compared with or converted into a bureau score.
 2. Draws a large seeded sample from the mock bureau's **population score distribution** (the same distribution the mock bureau uses for applicants without a fixed persona; NTC excluded) and sets:
-   - `approve_threshold` = the score at the 62.7th percentile (so the top 37.3% pass R2),
-   - `refer_floor` = the score at the 47.7th percentile (the next 15%, width configurable).
-3. Writes both values into `policy/seed_policy.json` with the `source` field: *"Illustrative calibration to the 37.3% approval-rate scenario from the credit-risk cut-off project; does not establish equivalent risk."*
+   - `approve_threshold` = the score at the 11.8th percentile (so the top 88.2% pass R2),
+   - `refer_floor` = the score at the 6.8th percentile (the next 5%, width configurable).
+
+   With these defaults R2 alone declines only the bottom 6.8% of the scored population. That is a deliberately lenient score policy, mirroring the reference project's high approval rate; affordability (R3, R4, R6) and fraud checks do most of the screening.
+3. Writes both values into `policy/seed_policy.json` with the `source` field: *"Illustrative calibration to the 88.2% approval-rate scenario from the credit-risk cut-off project; does not establish equivalent risk."*
 4. Reports the R2 pass rate and the overall approval rate these thresholds actually produce on the 500 synthetic applications.
 
-**Expected difference, stated in advance.** The 500 test applications are deliberately skewed toward edge cases (see the persona plan in [DECISIONS.md D-29](DECISIONS.md)), and approval also depends on R1, R3–R6 and fraud checks. The overall approval rate on the 500 will therefore **not** equal 37.3%; the script reports whatever the real figure is.
+**Expected difference, stated in advance.** The 500 test applications are deliberately skewed toward edge cases (see the persona plan in [DECISIONS.md D-29](DECISIONS.md)), and approval also depends on R1, R3–R6 and fraud checks. The overall approval rate on the 500 will therefore **not** equal 88.2%; the script reports whatever the real figure is.
 
 **Limits.**
-- This engine does **not** reproduce the reference project's 3.0% bad rate, or any bad rate. There are no repayment outcomes in this simulation.
+- This engine does **not** reproduce the reference project's 5.9% payment-difficulty rate, or any bad rate. There are no repayment outcomes in this simulation.
 - Matching an approval rate says nothing about matching risk.
 - Pricing bands (§7) are independent illustrative values.
 

@@ -2,6 +2,7 @@
 
 > Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.
 > Status: **Phase 0 skeleton.** Endpoints and screens are planned; test names are planned and marked ⏳. Each row is marked ✅ only when the test exists and passes. Completed in Phase 7.
+> Phase 2 progress: EC-03, EC-04, EC-05, EC-06 and EC-11 are covered by passing tests (`tests/test_verification.py`); the bureau retry path for EC-07 is tested at provider level and gets its end-to-end test with assessment in Phase 3.
 > Phase 1 progress: EC-01, EC-02, EC-14 and the state machine are covered by passing tests; US-01/US-02/US-09 endpoints exist (stories stay ⏳ until their screens exist).
 
 ## 1. User stories → endpoints → screens → tests
@@ -27,15 +28,15 @@
 |---|---|---|---|
 | EC-01 | `services/otp.py` | `test_ec_01_otp_locked_after_three_wrong_attempts` | ✅ |
 | EC-02 | `services/otp.py` | `test_ec_02_expired_otp_rejected_and_resend_capped` | ✅ |
-| EC-03 | `schemas/pan.py`, frontend PAN field | `test_ec_03_invalid_pan_format_makes_no_provider_call` | ⏳ |
-| EC-04 | `services/pan.py` | `test_ec_04_pan_name_mismatch_requires_confirmation_and_feeds_f3` | ⏳ |
-| EC-05 | `integrations/retry.py`, `services/kyc.py` | `test_ec_05_kyc_timeout_retries_then_stays_pending` | ⏳ |
-| EC-06 | `services/kyc.py` | `test_ec_06_kyc_incomplete_asks_retry` | ⏳ |
+| EC-03 | `services/verification.py` (`verify_pan`), frontend PAN field (Phase 4) | `test_ec_03_invalid_pan_format_makes_no_provider_call` | ✅ |
+| EC-04 | `services/verification.py` (`verify_pan`) | `test_ec_04_pan_name_mismatch_requires_confirmation_and_feeds_f3` | ✅ |
+| EC-05 | `integrations/calls.py` (`call_with_retries`), `services/verification.py` (`complete_kyc`) | `test_ec_05_kyc_timeout_retries_then_stays_pending` | ✅ |
+| EC-06 | `services/verification.py` (`complete_kyc`) | `test_ec_06_kyc_incomplete_asks_retry` | ✅ |
 | EC-07 | `engine/decision.py` (validate step) | `test_ec_07_bureau_timeout_refers_with_sys_code` | ⏳ |
 | EC-08 | `engine/rules/r2_credit_score.py` | `test_ec_08_ntc_refers_not_declines` | ⏳ |
 | EC-09 | `engine/decision.py` (resolve inputs) | `test_ec_09_aa_declined_caps_at_referred` | ⏳ |
 | EC-10 | `engine/fraud/f4_income.py`, resolve inputs | `test_ec_10_income_mismatch_uses_verified_and_flags_f4` | ⏳ |
-| EC-11 | `engine/fraud/f1_duplicate_pan.py`, `services/pan.py` | `test_ec_11_duplicate_pan_blocked_with_409` | ⏳ |
+| EC-11 | `engine/fraud/f1_duplicate_pan.py`, `services/verification.py` | `test_ec_11_duplicate_pan_blocked_with_409` | ✅ |
 | EC-12 | `engine/fraud/f2_velocity.py` | `test_ec_12_velocity_flags_fourth_application` | ⏳ |
 | EC-13 | `engine/rules/r1_age.py` | `test_ec_13_age_out_of_range_declines` | ⏳ |
 | EC-14 | `services/expiry.py` | `test_ec_14_abandoned_application_expires_after_30_days` | ✅ |

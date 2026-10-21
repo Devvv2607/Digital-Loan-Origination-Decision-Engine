@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     demo_mode: bool = True
     demo_read_only: bool = True
     mock_latency_ms: int = Field(default=300, ge=0, le=10_000)
+    # Backoff before retry n is base * 2^(n-1): 500 ms, then 1 s (EC-05, EC-07).
+    provider_retry_backoff_ms: int = Field(default=500, ge=0, le=10_000)
     rate_limit_profile: Literal["default", "simulation", "off"] = "default"
 
     cors_origins: str = "http://localhost:3000"

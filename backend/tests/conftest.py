@@ -60,6 +60,7 @@ def settings():
         demo_mode=True,
         demo_read_only=True,
         mock_latency_ms=0,
+        provider_retry_backoff_ms=0,
         rate_limit_profile="default",
         log_level="WARNING",
     )

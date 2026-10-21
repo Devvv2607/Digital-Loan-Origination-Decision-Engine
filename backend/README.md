@@ -38,7 +38,9 @@ Tests rebuild the `lendwise_test` database from the Alembic migrations once per 
 | `app/core/` | Settings, DB session, injectable clock, error shape, masking, JWT roles, rate limits |
 | `app/models/` | SQLAlchemy models (all PRD tables + idempotency keys) |
 | `app/state_machine/` | 8 states, allowed transitions, event log, event-log checker |
-| `app/services/` | OTP, applications, expiry, idempotency |
-| `app/api/` | Routers: health, auth, applications, admin |
+| `app/integrations/` | Provider interfaces, deterministic mocks, logged calls with retries |
+| `app/engine/` | Decision engine (F1 duplicate-PAN check so far) |
+| `app/services/` | OTP, applications, PAN / e-KYC / AA verification, expiry, idempotency |
+| `app/api/` | Routers: health, auth, applications, verification, admin, `/mock/*` |
 | `alembic/` | Migrations |
 | `tests/` | pytest suite |

@@ -31,6 +31,7 @@ Each entry records the context, the decision, the alternatives considered and th
 ### D-05 — Abandonment measured from last activity; lazy plus bulk expiry
 - **Decision:** The 30-day clock runs from the last applicant activity, not from creation. Expiry is applied lazily on every read/action and in bulk via `POST /admin/jobs/expire`. All time comes from an injectable clock.
 - **Why:** Measuring from creation would expire someone who is actively working on their application. Lazy expiry works on free hosting tiers without a cron; the bulk job lets the dashboard and simulation see consistent states. The injectable clock makes EC-14 and EC-15 testable without waiting.
+- **Production trigger (to do in Phase 7):** Expire-on-read is already built (Phase 1), but on its own it leaves untouched applications in their old state, so dashboard counts drift. In production the bulk job `POST /admin/jobs/expire` needs a scheduled trigger: a Render cron job calling it with an admin token, or an equivalent scheduler. Implementation is deferred to Phase 7.
 
 ### D-06 — Duplicate PAN (F1) is an operational block at the PAN step
 - **Decision:** If another non-terminal application holds the PAN, `pan/verify` returns HTTP 409 with a neutral message, does not link the PAN, creates no decision and logs a `FRAUD_CHECK` event with `FRAUD_DUPLICATE_PAN`. The blocked application stays in `KYC_PENDING`: the applicant can retry with a corrected PAN (typos happen) or let it expire after 30 days.
@@ -67,10 +68,11 @@ Each entry records the context, the decision, the alternatives considered and th
 - **Why:** A counter-offer that is itself unaffordable would be irresponsible.
 
 ### D-13 — R2 thresholds come from an approval-rate scenario, not a risk mapping
-- **Context:** The reference credit-risk project's scorecard approved the top 37.3% of applicants. Its score scale is unrelated to the simulated 300–900 bureau score.
-- **Decision:** `seed_policy_from_cutoff.py` sets the R2 approve threshold at the bureau-score percentile that passes the top 37.3% of the mock bureau's **population distribution**, with a refer band covering the next 15%. The original model's scale and cut-off are recorded as metadata only. The script then reports the rates actually produced on the 500 synthetic applications.
+- **Context:** The reference credit-risk project's scorecard (points scale: base 600 at 50:1 odds, PDO 20) recommended a 535-point cut-off that approved 88.2% of its held-out test set, with a 5.9% payment-difficulty rate vs an 8.07% baseline. Its scale is unrelated to the simulated 300–900 bureau score.
+- **Decision:** `seed_policy_from_cutoff.py` sets the R2 approve threshold at the bureau-score percentile that passes the top 88.2% of the mock bureau's **population distribution**, with a refer band covering the next 5%. The original model's scale and cut-off are recorded as metadata only. The script then reports the rates actually produced on the 500 synthetic applications.
 - **Why the population, not the 500:** The 500 are deliberately skewed toward edge cases (D-29), so their score distribution is not representative of an applicant population. Calibrating on them would bake the test mix into the policy.
-- **Limits:** No claim of equivalent risk; no bad rate is reproduced (there are no repayment outcomes). Stated in RULES.md §6 and in the seed file's `source` field.
+- **Correction (Phase 2):** An earlier draft used 37.3% approval, a 15% refer band and a 3.0% bad rate. Those figures were wrong; the reference project's results are 88.2% approval and a 5.9% payment-difficulty rate.
+- **Limits:** No claim of equivalent risk; the 5.9% rate (or any bad rate) is not reproduced (there are no repayment outcomes). Stated in RULES.md §6 and in the seed file's `source` field.
 
 ### D-14 — One global policy version, per-rule rows
 - **Decision:** Policy version is a single integer; each edit inserts one new row for the edited rule. Version *N* = latest row per rule with `version ≤ N`.
@@ -95,8 +97,12 @@ Each entry records the context, the decision, the alternatives considered and th
 ### D-27 — Age uses the e-KYC date of birth
 - **Why:** e-KYC is the most authoritative identity source in the flow. PAN/KYC DOB disagreement is handled separately by F3.
 
+### D-30 — Phone stored as keyed hash plus last 4 digits
+- **Decision:** `applicants` stores a keyed hash of the phone number (`phone_hash`, HMAC-SHA256 with `PII_HASH_KEY`) and its last 4 digits (`phone_last4`). The full number is never stored. Internal screens such as the ops referral queue show `******` + last 4 (e.g. `******4321`). All matching — login lookup and the F2 velocity check — uses `phone_hash` only.
+- **Why:** The last 4 digits let an analyst tell applicants apart and match a support call, without the database holding a usable phone number. Velocity needs exact matching, which the hash gives.
+
 ### D-22 — Velocity window and counting
-- **Decision:** F2 counts applications created from the same phone **or** the same device ID in the 24 hours up to and including the current one; it fires when that count exceeds 3 (4th and later). Applications blocked by F1 still count.
+- **Decision:** F2 counts applications created from the same phone (matched by `phone_hash`, see D-30) **or** the same device ID in the 24 hours up to and including the current one; it fires when that count exceeds 3 (4th and later). Applications blocked by F1 still count.
 - **Why:** Blocked attempts are themselves a velocity signal. Device ID is a client-generated identifier sent as `X-Device-Id`.
 
 ---
@@ -104,8 +110,13 @@ Each entry records the context, the decision, the alternatives considered and th
 ## Integrations, security and operations
 
 ### D-17 — Deterministic in-process mocks behind adapters
-- **Decision:** Each provider has an interface and a `Mock` implementation called in-process. `/mock/*` HTTP routes expose the same code for Swagger. Behaviour resolves in order: registered fixture (`PUT /mock/profiles/{pan}`) → magic PAN last letter (`X`, `T`, `I`, `M`, `D`, `B`, `N`) → hash of the PAN.
+- **Decision:** Each provider has an interface and a `Mock` implementation called in-process. `/mock/*` HTTP routes expose the same code for Swagger. Behaviour resolves in order: registered fixture (`PUT /mock/profiles/{pan}`) → magic PAN last letter (`X`, `T`, `I`, `M`, `D`, `B`, `N`) → hash of the PAN. A fixture always wins; magic letters only apply to PANs without one.
 - **Why:** Calling our own HTTP endpoints from the backend would add latency and failure modes on free hosting. Fixtures mirror how real provider sandboxes publish test identities, and let the simulation set exact persona data through the API. The hash fallback means any well-formed PAN a visitor types still gets a stable result.
+
+### D-31 — Free-typed PANs get a pseudo-random profile; personas are the controlled path
+- **Context:** A PAN without a registered fixture gets a hash-derived identity, bureau record and bank income. Its PAN name almost never matches the name the visitor typed, and its income rarely matches their declared income.
+- **Decision:** Keep providers realistic: a mock bureau or AA never sees the applicant's declared details. Free-typed PANs therefore usually trigger the EC-04 name confirmation and often F4. The one-click demo personas (Phase 4) register fixtures so each outcome is reproducible, and the landing page will say so.
+- **Trade-off:** A visitor who ignores the personas sees more referrals than a real applicant would; in return the mocks behave like independent providers rather than echoing input.
 
 ### D-18 — E-sign and disbursal are simulated internal steps, not integrations
 - **Decision:** Mock e-sign and mock disbursal are steps inside the lender's workflow, logged as events, not adapters under `/mock/*`.
@@ -144,7 +155,7 @@ Each entry records the context, the decision, the alternatives considered and th
 | FOIR pass / refer (R4) | ≤ 50% / ≤ 60% | Half of income committed to debt is a widely used affordability comfort line; a 10-point grey zone goes to a human |
 | Employment tenure (R5) | 6 months salaried / 24 months self-employed | Past probation for salaried; self-employed income needs a longer track record |
 | Loan-to-income cap (R6) | 20× monthly income | Keeps unsecured exposure under about 1.7 years of income |
-| R2 refer band width | 15% of population | Big enough to route real grey-zone cases to review without flooding the queue |
+| R2 refer band width | 5% of population | A narrow grey zone just below the 88.2% approval line; keeps the referral queue small when the score policy is this lenient |
 | Name similarity (F3) | 0.85 | Tolerates initials and spelling variants; catches different people |
 | Income difference (F4) | 30% | Tolerates bonuses and variable pay; flags inflated declarations |
 | Velocity (F2) | > 3 in 24 h | A genuine applicant rarely needs more than 3 attempts a day |

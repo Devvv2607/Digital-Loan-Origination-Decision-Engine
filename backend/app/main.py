@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import admin, applications, auth, health
+from app.api import admin, applications, auth, health, mock, verification
 from app.core.clock import Clock
 from app.core.config import Settings, load_settings
 from app.core.db import make_engine, make_sessionmaker
@@ -52,5 +52,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(applications.router)
+    app.include_router(verification.router)
     app.include_router(admin.router)
+    app.include_router(mock.router)
     return app
