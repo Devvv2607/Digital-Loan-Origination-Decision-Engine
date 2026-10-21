@@ -114,7 +114,7 @@
       "outcome_on_fail": null,
       "reason_codes": [
         "INFO_AMOUNT_CAPPED",
-        "ELIG_INCOME_LOW"
+        "ELIG_AMOUNT_BELOW_MIN"
       ]
     },
     {

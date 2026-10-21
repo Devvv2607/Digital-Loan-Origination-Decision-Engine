@@ -137,11 +137,11 @@ def evaluate(i: DecisionInputs, policy: Policy) -> EngineResult:
         cap, amount = r6_cap(i.requested_amount, income, policy.params("R6"))
         if cap < pricing.loan_amount_min:
             amount = i.requested_amount
-            r6 = RuleResult("R6", "DECLINE", rc.ELIG_INCOME_LOW,
+            r6 = RuleResult("R6", "DECLINE", rc.ELIG_AMOUNT_BELOW_MIN,
                             f"Income supports at most {rc.inr(cap)}, below the minimum loan {rc.inr(pricing.loan_amount_min)}.",
                             {"requested": i.requested_amount, "cap": cap})
             results.append(r6)
-            _collect(r6, reasons, {"below_minimum_loan": True})
+            _collect(r6, reasons)
         elif amount < i.requested_amount:
             r6 = RuleResult("R6", "INFO", rc.INFO_AMOUNT_CAPPED,
                             f"Requested {rc.inr(i.requested_amount)} exceeds the cap of "

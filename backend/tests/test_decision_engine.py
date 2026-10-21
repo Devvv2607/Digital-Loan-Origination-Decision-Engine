@@ -109,15 +109,19 @@ def test_counter_offer_not_made_when_capped_amount_still_unaffordable():
     assert r4.result == "DECLINE" and r.snapshot["offer_amount"] == 2_000_000  # R4 judged on the capped amount
 
 
-def test_income_too_low_for_minimum_loan_declines_via_r6():
+def test_income_too_low_for_minimum_loan_declines_via_r6_with_its_own_code():
     policy = make_policy(params={"R3": {"min_monthly_income": 1_000}})
     i = replace(BASE, declared_income=2_000, verified_income=2_000, requested_amount=100_000)
     r = evaluate(i, policy)
     assert r.outcome == "DECLINED"
     r6 = next(x for x in r.rule_results if x.rule_id == "R6")
-    assert (r6.result, r6.code) == ("DECLINE", rc.ELIG_INCOME_LOW)
-    messages = [m["message"] for m in applicant_reasons(r.outcome, r.reasons)]
-    assert any("minimum loan amount" in m for m in messages)
+    assert (r6.result, r6.code) == ("DECLINE", rc.ELIG_AMOUNT_BELOW_MIN)
+    # Attributed to R6 alone: R3 passed (min income lowered to 1,000), so ELIG_INCOME_LOW must not appear.
+    assert rc.ELIG_INCOME_LOW not in codes(r)
+    assert r.primary_reason_code in (rc.ELIG_FOIR_HIGH, rc.ELIG_AMOUNT_BELOW_MIN)
+    shown = applicant_reasons(r.outcome, r.reasons)
+    assert {"code": rc.ELIG_AMOUNT_BELOW_MIN,
+            "message": "Based on your income, we can't offer the minimum loan amount right now."} in shown
 
 
 def test_disabled_rules_are_skipped_and_recorded():

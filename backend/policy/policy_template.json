@@ -18,7 +18,7 @@
      "outcome_on_fail": "REFER", "reason_codes": ["ELIG_EMPLOYMENT_TENURE"]},
     {"rule_id": "R6", "kind": "ELIGIBILITY", "name": "Loan-to-income cap", "enabled": true,
      "parameters": {"max_multiple_of_monthly_income": 20, "round_down_to": 1000},
-     "outcome_on_fail": null, "reason_codes": ["INFO_AMOUNT_CAPPED", "ELIG_INCOME_LOW"]},
+     "outcome_on_fail": null, "reason_codes": ["INFO_AMOUNT_CAPPED", "ELIG_AMOUNT_BELOW_MIN"]},
     {"rule_id": "F1", "kind": "FRAUD", "name": "Duplicate PAN", "enabled": true,
      "parameters": {},
      "outcome_on_fail": null, "reason_codes": ["FRAUD_DUPLICATE_PAN"]},

@@ -122,9 +122,10 @@ Each entry records the context, the decision, the alternatives considered and th
 - **Decision:** Loan amount and tenure limits, processing fee, rate bands, offer validity, cooling-off and the grievance contact are one versioned `PRICING` row, edited like a rule. The 6-rule count is unchanged: PRICING is configuration, not an eligibility rule.
 - **Why:** A policy manager can change the product without a deploy, and every offer still records the exact version it was priced under (EC-15).
 
-### D-33 — R6 cap below the minimum loan declines with `ELIG_INCOME_LOW`
-- **Decision:** If 20x income is below the ₹50,000 minimum loan, R6 cannot make a counter-offer and returns DECLINE with `ELIG_INCOME_LOW`.
-- **Why:** The applicant's problem is income, so the existing income code explains it; no new reason code is needed. With the default policy, R3 has already declined such applicants.
+### D-33 — R6 cap below the minimum loan declines with `ELIG_AMOUNT_BELOW_MIN`
+- **Decision:** If 20x income is below the ₹50,000 minimum loan, R6 cannot make a counter-offer and returns DECLINE with its own code, `ELIG_AMOUNT_BELOW_MIN` (applicant sees: "Based on your income, we can't offer the minimum loan amount right now.").
+- **Why:** A distinct code keeps rule-fire counts honest: the Phase 6 report attributes this decline to R6, not R3. Reusing `ELIG_INCOME_LOW` would have double-counted R3. With the default policy, R3 has usually declined such applicants as well, and both codes are then recorded.
+- **Revision (Phase 4 prep):** first implemented with `ELIG_INCOME_LOW`; changed to the distinct code before any results were published.
 
 ### D-34 — EC-04 shares F3's threshold; F1 can be switched off
 - **Decision:** The PAN-step name check (EC-04) uses F3's `name_similarity_min`, so one setting governs "names match". Turning F1 off removes the duplicate-PAN block (it is F1's only setting).

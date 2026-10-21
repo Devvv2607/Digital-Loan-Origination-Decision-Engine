@@ -25,6 +25,7 @@ ELIG_SCORE_LOW = "ELIG_SCORE_LOW"
 ELIG_SCORE_BORDERLINE = "ELIG_SCORE_BORDERLINE"
 ELIG_THIN_FILE = "ELIG_THIN_FILE"
 ELIG_INCOME_LOW = "ELIG_INCOME_LOW"
+ELIG_AMOUNT_BELOW_MIN = "ELIG_AMOUNT_BELOW_MIN"  # R6: income supports less than the minimum loan
 ELIG_FOIR_HIGH = "ELIG_FOIR_HIGH"
 ELIG_EMPLOYMENT_TENURE = "ELIG_EMPLOYMENT_TENURE"
 INFO_AMOUNT_CAPPED = "INFO_AMOUNT_CAPPED"
@@ -32,7 +33,8 @@ INFO_AMOUNT_CAPPED = "INFO_AMOUNT_CAPPED"
 ALL_CODES = {
     SYS_BUREAU_UNAVAILABLE, DATA_INCOME_UNVERIFIED, FRAUD_DUPLICATE_PAN, FRAUD_VELOCITY,
     FRAUD_IDENTITY_MISMATCH, FRAUD_INCOME_MISMATCH, ELIG_AGE, ELIG_SCORE_LOW, ELIG_SCORE_BORDERLINE,
-    ELIG_THIN_FILE, ELIG_INCOME_LOW, ELIG_FOIR_HIGH, ELIG_EMPLOYMENT_TENURE, INFO_AMOUNT_CAPPED,
+    ELIG_THIN_FILE, ELIG_INCOME_LOW, ELIG_AMOUNT_BELOW_MIN, ELIG_FOIR_HIGH, ELIG_EMPLOYMENT_TENURE,
+    INFO_AMOUNT_CAPPED,
 }
 
 # Rule order used to break ties inside a priority group.
@@ -91,8 +93,6 @@ def applicant_message(code: str, severity: Severity, context: dict | None = None
             if severity == Severity.DECLINE
             else "Your existing repayments are on the high side, so our team will review your application."
         )
-    if code == ELIG_INCOME_LOW and context.get("below_minimum_loan"):
-        return "Based on your income, we can't offer the minimum loan amount right now."
     if code == INFO_AMOUNT_CAPPED:
         return (
             f"Based on your income, we can offer up to {inr(context.get('capped_amount', 0))} "
@@ -104,6 +104,7 @@ def applicant_message(code: str, severity: Severity, context: dict | None = None
         ELIG_SCORE_BORDERLINE: "Our team will take a closer look at your credit history.",
         ELIG_THIN_FILE: "You're new to credit, so our team will review your application.",
         ELIG_INCOME_LOW: "Your monthly income is below the minimum for this loan.",
+        ELIG_AMOUNT_BELOW_MIN: "Based on your income, we can't offer the minimum loan amount right now.",
         ELIG_EMPLOYMENT_TENURE: "Our team will review your employment details.",
         DATA_INCOME_UNVERIFIED: "Without bank data we need to review your income manually.",
         SYS_BUREAU_UNAVAILABLE: "Your application needs a quick review. We'll update you soon.",

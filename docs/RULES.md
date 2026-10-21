@@ -137,7 +137,7 @@ Boundaries are stated exactly; tests cover each boundary value.
 | Cap | Counter-offer amount = `floor(multiplier × income / 1,000) × 1,000`. Recalculate EMI at the same rate and tenure and **re-run R4** on the counter-offer amount |
 | Result | If R4 passes on the capped amount: counter-offer, `INFO_AMOUNT_CAPPED` (informational; does not refer). If R4 refers or declines on the capped amount: that R4 outcome stands, and `INFO_AMOUNT_CAPPED` is still recorded so analysts see the cap |
 | Parameters | `max_multiple_of_monthly_income` (20), `round_down_to` (1000) |
-| Below minimum | If the cap is below the product minimum loan (₹50,000), no counter-offer is possible: R6 returns DECLINE with `ELIG_INCOME_LOW` (income too low for the minimum loan amount). With the default policy this only happens when R3 has already declined |
+| Below minimum | If the cap is below the product minimum loan (₹50,000), no counter-offer is possible: R6 returns DECLINE with its own code `ELIG_AMOUNT_BELOW_MIN`, so rule-fire counts attribute it to R6, not R3. With the default policy this only happens when R3 has already declined |
 
 When R6 caps, R4 is evaluated **only** on the capped amount (the amount that would actually be offered).
 
@@ -172,12 +172,12 @@ Name similarity is a normalised token-sort ratio in `[0, 1]` (case, punctuation,
 | `SYS_*` | Technical failure | `SYS_BUREAU_UNAVAILABLE` | REFER |
 | `DATA_*` | Missing or unverified data | `DATA_INCOME_UNVERIFIED` | REFER |
 | `FRAUD_*` | Fraud signal | `FRAUD_DUPLICATE_PAN` (PAN step only), `FRAUD_VELOCITY`, `FRAUD_IDENTITY_MISMATCH`, `FRAUD_INCOME_MISMATCH` | Block (F1) / REFER |
-| `ELIG_*` | Credit policy | `ELIG_AGE`, `ELIG_SCORE_LOW`, `ELIG_SCORE_BORDERLINE`, `ELIG_THIN_FILE`, `ELIG_INCOME_LOW`, `ELIG_FOIR_HIGH`, `ELIG_EMPLOYMENT_TENURE` | DECLINE / REFER |
+| `ELIG_*` | Credit policy | `ELIG_AGE`, `ELIG_SCORE_LOW`, `ELIG_SCORE_BORDERLINE`, `ELIG_THIN_FILE`, `ELIG_INCOME_LOW`, `ELIG_AMOUNT_BELOW_MIN`, `ELIG_FOIR_HIGH`, `ELIG_EMPLOYMENT_TENURE` | DECLINE / REFER |
 | `INFO_*` | Informational | `INFO_AMOUNT_CAPPED` | None |
 
 ### Primary reason code
 The primary code is the first code present in this priority order:
-1. DECLINE-severity `ELIG_*` in rule order (R1, R2, R3, R4)
+1. DECLINE-severity `ELIG_*` in rule order (R1, R2, R3, R4, R6)
 2. `SYS_*`
 3. `FRAUD_*` (F2, F3, F4)
 4. `DATA_*`
@@ -200,6 +200,7 @@ A plain approval with no `INFO_*` code has `primary_reason_code = null`.
 | `ELIG_SCORE_BORDERLINE` | "Our team will take a closer look at your credit history." |
 | `ELIG_THIN_FILE` | "You're new to credit, so our team will review your application." |
 | `ELIG_INCOME_LOW` | "Your monthly income is below the minimum for this loan." |
+| `ELIG_AMOUNT_BELOW_MIN` | "Based on your income, we can't offer the minimum loan amount right now." |
 | `ELIG_FOIR_HIGH` (REFER) | "Your existing repayments are on the high side, so our team will review your application." |
 | `ELIG_FOIR_HIGH` (DECLINE) | "Your existing repayments are too high relative to your income for this loan." |
 | `ELIG_EMPLOYMENT_TENURE` | "Our team will review your employment details." |
