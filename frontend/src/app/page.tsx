@@ -47,6 +47,12 @@ export default function Home() {
             >
               Apply as yourself
             </Link>
+            <Link
+              href="/internal/referrals"
+              className="inline-flex h-11 items-center px-1 text-[0.95rem] font-medium text-primary underline underline-offset-4"
+            >
+              View as ops or admin (read-only)
+            </Link>
           </div>
         </div>
         <SampleDecision />

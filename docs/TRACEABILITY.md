@@ -2,6 +2,7 @@
 
 > Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.
 > Status: **Phase 0 skeleton.** Endpoints and screens are planned; test names are planned and marked ⏳. Each row is marked ✅ only when the test exists and passes. Completed in Phase 7.
+> Phase 5 progress: internal tools built (`frontend/src/components/internal/*`) with backend tests in `tests/test_ops.py`, `tests/test_metrics.py` and `tests/test_policy.py`.
 > Phase 4 progress: applicant screens exist for US-01 to US-09 (`frontend/src/components/apply/steps/*`); landing page with the 5 one-click personas (`frontend/src/app/page.tsx`). Story rows turn ✅ when the Playwright test (Phase 6) covers them.
 > Phase 3 progress: all 15 edge cases have passing `test_ec_XX` tests; every rule, fraud check, precedence and pricing row is covered (`tests/test_rules_and_checks.py`, `test_decision_engine.py`, `test_pricing.py`, `test_assessment.py`, `test_offers.py`, `test_policy.py`).
 > Phase 2 progress: EC-03, EC-04, EC-05, EC-06 and EC-11 are covered by passing tests (`tests/test_verification.py`); the bureau retry path for EC-07 is tested at provider level and gets its end-to-end test with assessment in Phase 3.
@@ -20,9 +21,9 @@
 | US-07 KFS offer | `GET /applications/{id}/offer` | KFS offer screen | `test_offer_contains_kfs_fields`, `test_emi_reference_values`, `test_apr_reference_values`, `test_schedule_invariants`, `test_counter_offer_shown`, `test_accept_requires_kfs_ack` | ⏳ |
 | US-08 Accept / e-sign / disburse | `POST /offer/accept`, `POST /offer/esign`, `POST /disburse` | Accept + e-sign; Disbursed | `test_offer_status_sequence`, `test_esign_requires_accepted`, `test_disburse_requires_esigned`, `test_expired_offer_moves_to_expired`, `test_ec_15_*`, Playwright `happy_path.spec.ts` | ⏳ |
 | US-09 Resume | `POST /auth/otp/verify` (`resumable_applications`), `GET /applications/{id}` | Landing → resume prompt | `test_resume_returns_next_step`, `test_ec_14_*`, `test_other_phone_forbidden` | ⏳ |
-| US-10 Policy editor | `GET /admin/rules`, `PUT /admin/rules/{rule_id}`, `GET /admin/rules/versions` | Admin: Policy editor | `test_rule_edit_creates_new_version`, `test_invalid_params_rejected`, `test_new_version_used_without_restart`, `test_readonly_cannot_edit` | ⏳ |
-| US-11 Referral queue | `GET /ops/referrals`, `GET /ops/referrals/{id}`, `POST /ops/referrals/{id}/review` | Ops: Referral queue + detail | `test_referrals_paginated_oldest_first`, `test_referral_detail_shows_integrations`, `test_review_approve_generates_offer`, `test_review_idempotent_and_single`, `test_review_requires_ops_role` | ⏳ |
-| US-12 Metrics | `GET /metrics/funnel`, `GET /metrics/tat` | PM: Metrics dashboard | `test_funnel_counts`, `test_drop_off`, `test_tat_median_p90_from_events`, `test_decision_rates` | ⏳ |
+| US-10 Policy editor | `GET /admin/rules`, `PUT /admin/rules/{rule_id}`, `GET /admin/rules/versions` | `/internal/policy` | `test_rule_edit_creates_new_version`, `test_invalid_params_rejected`, `test_new_version_used_without_restart`, `test_readonly_cannot_edit` | ⏳ |
+| US-11 Referral queue | `GET /ops/referrals`, `GET /ops/referrals/{id}`, `POST /ops/referrals/{id}/review` | `/internal/referrals`, `/internal/referrals/{id}` | `test_referrals_paginated_oldest_first`, `test_referral_detail_shows_integrations`, `test_review_approve_generates_offer`, `test_review_idempotent_and_single`, `test_review_requires_ops_role` | ⏳ |
+| US-12 Metrics | `GET /metrics/funnel`, `GET /metrics/tat` | `/internal/metrics` | `test_funnel_counts`, `test_drop_off`, `test_tat_median_p90_from_events`, `test_decision_rates` | ⏳ |
 
 ## 2. Edge cases → handling → tests
 

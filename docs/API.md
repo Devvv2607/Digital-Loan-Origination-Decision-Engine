@@ -1,7 +1,7 @@
 # API Contracts (draft)
 
 > Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.
-> Status: **Phase 3 draft** (endpoints through the decision engine and offer flow are implemented; ops referrals, metrics and demo reset arrive in Phase 5). The generated OpenAPI spec at `/docs` (Swagger) and `/openapi.json` becomes the source of truth once the backend exists; this file will be reconciled with it in Phase 7.
+> Status: **Phase 5** — every endpoint below is implemented. Final reconciliation with the generated OpenAPI spec happens in Phase 7. The generated OpenAPI spec at `/docs` (Swagger) and `/openapi.json` becomes the source of truth once the backend exists; this file will be reconciled with it in Phase 7.
 
 All example PANs, phone numbers and names are synthetic. Example PANs use the prefix `ZZZPZ` and example phones start `90000`.
 
@@ -468,7 +468,7 @@ The UI computes diffs between any two versions from these rows.
 
 ### `POST /admin/demo/reset` — admin *(added)*
 Deletes applications, events, decisions, offers, reviews, OTP attempts and integration calls; restores policy to the seed version; re-registers demo persona fixtures.
-`200` → `{"status": "reset", "policy_version": 1}`
+`200` → `{"status": "reset", "policy_version": 1, "deleted": {"applications": 11, "...": 0}}` (also clears the in-memory rate limiter)
 
 ### `POST /admin/jobs/expire` — admin *(added)*
 Applies the 30-day abandonment and 7-day offer expiry rules.
@@ -515,7 +515,7 @@ Full decision (ops view above) plus application details, timeline and masked int
 ```json
 {"application_id": "a3c9...", "state": "APPROVED", "review_id": "r-11ab...", "offer_id": "o-77cd...", "policy_version": 3}
 ```
-`action` is `APPROVE` or `DECLINE`; `notes` required (min 10 characters). The offer uses the decision's `policy_version`. Errors: `422 VALIDATION_ERROR`, `409 ALREADY_REVIEWED`, `409 INVALID_STATE_TRANSITION`, `401`, `403`.
+`action` is `APPROVE` or `DECLINE`; `notes` required (min 10 characters). The offer uses the engine decision's `policy_version` (D-38). If the bureau was unavailable at assessment, the offer is the requested amount at the fallback rate. Errors: `422 VALIDATION_ERROR`, `409 ALREADY_REVIEWED`, `409 INVALID_STATE_TRANSITION`, `401`, `403`.
 
 ---
 

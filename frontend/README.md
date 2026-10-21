@@ -23,6 +23,11 @@ Checks: `npm run typecheck`, `npm run lint`, `npm run build`.
 |---|---|
 | `/` | Landing page: what the project is, the 5 one-click demo personas, the journey, what is simulated |
 | `/apply` | Applicant journey: phone + OTP, details, PAN, e-KYC, bank-data consent, decision, KFS-style offer, e-sign, disbursal |
+| `/internal/metrics` | PM dashboard: conversion, instant-decision, referral and fraud-flag rates; funnel, decision mix, time in each stage, top reason codes (each with a table view) |
+| `/internal/referrals` | Referral queue, oldest first, filter by reason; detail page with every rule result, key facts, provider calls, timeline and the review form |
+| `/internal/policy` | Credit policy editor (6 rules, 4 fraud checks, pricing) with version history and diffs |
+
+Internal screens are read-only without a sign-in (names shown as initials). Sign in with the backend's `ADMIN_*` or `OPS_*` credentials to edit policy, review referrals, or reset demo data (admin).
 
 ## Design notes
 
@@ -39,6 +44,7 @@ Checks: `npm run typecheck`, `npm run lint`, `npm run build`.
 |---|---|
 | `src/app/` | Routes, global theme (`globals.css`), root layout with banner |
 | `src/components/landing/` | Persona list, sample decision |
+| `src/components/internal/` | Internal sign-in, shell, policy editor, referral queue/detail, metrics dashboard (Recharts) |
 | `src/components/apply/` | Flow orchestrator, progress, shared step UI, one file per step |
 | `src/components/ui/` | shadcn/ui components |
 | `src/lib/` | API client (one error shape, idempotency keys), session storage, formatting, types |

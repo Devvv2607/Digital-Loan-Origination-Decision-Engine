@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from app.core.security import Principal, require_admin, require_internal_read
 from app.engine.policy import ALL_RULE_IDS, OUTCOME_EDITABLE, RuleView, load_policy, update_rule
 from app.models import RuleConfig
 from app.schemas.common import error_responses
+from app.services.demo_reset import reset_demo_data
 from app.services.expiry import run_expiry_job
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -34,6 +35,19 @@ def expire_job(
 ) -> ExpiryJobResponse:
     result = run_expiry_job(db, clock.now())
     return ExpiryJobResponse(expired_abandoned=result.expired_abandoned, expired_offers=result.expired_offers)
+
+
+@router.post("/demo/reset", responses=error_responses(401, 403),
+             summary="Reset demo data: delete applications and fixtures, restore policy version 1")
+def demo_reset(
+    request: Request,
+    _: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+    clock: Clock = Depends(get_clock),
+) -> dict:
+    result = reset_demo_data(db, clock.now())
+    request.app.state.rate_limiter.reset()
+    return result
 
 
 # ---------------------------------------------------------------- policy (US-10)

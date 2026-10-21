@@ -40,8 +40,8 @@ Tests rebuild the `lendwise_test` database from the Alembic migrations once per 
 | `app/state_machine/` | 8 states, allowed transitions, event log, event-log checker |
 | `app/integrations/` | Provider interfaces, deterministic mocks, logged calls with retries |
 | `app/engine/` | Versioned policy, 6 rules, 4 fraud checks, decision engine, pricing (EMI/APR) |
-| `app/services/` | OTP, applications, PAN / e-KYC / AA verification, assessment, offers, expiry, idempotency |
+| `app/services/` | OTP, applications, PAN / e-KYC / AA verification, assessment, offers, ops review, metrics, demo reset, expiry, idempotency |
 | `policy/` | `policy_template.json` (defaults) and `seed_policy.json` (written by `scripts/seed_policy_from_cutoff.py`) |
-| `app/api/` | Routers: health, auth, applications, verification, admin, `/mock/*` |
+| `app/api/` | Routers: health, auth, applications, verification, decisions and offers, admin, ops and metrics, demo personas, `/mock/*` |
 | `alembic/` | Migrations |
 | `tests/` | pytest suite |

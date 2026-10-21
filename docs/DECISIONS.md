@@ -144,6 +144,19 @@ Each entry records the context, the decision, the alternatives considered and th
 - **Decision:** The "What we checked" list shows journey facts (PAN verified, e-KYC complete, bank data shared or not, bureau report requested) plus the applicant-safe reasons. It never shows per-rule pass marks.
 - **Why:** When the bureau is down, credit rules are not evaluated (D-08); a per-rule checklist would imply they passed. Rule-level detail stays on the analyst view.
 
+### D-38 — Analyst approvals are priced under the engine decision's policy version
+- **Decision:** An analyst's approval creates a MANUAL decision and an offer priced under the policy version of the engine decision that referred it, even if the policy changed since. If the engine stopped early because the bureau was unavailable (no score, no price), the analyst's offer is the requested amount at the PRICING `fallback_rate` (the highest band).
+- **Why:** Same rule as EC-15: an application is judged and priced under one policy version from start to finish. With no score there is no risk band, so the conservative rate applies; the analyst can decline instead.
+- **Also:** notes are mandatory (at least 10 characters); a referral can be reviewed once (a second, different review returns 409 `ALREADY_REVIEWED`); retries with the same `Idempotency-Key` replay the original result. An analyst decline shows the applicant no engine reasons; the screen says the credit team reviewed it.
+
+### D-39 — Read-only demo view of internal screens shows initials, not names
+- **Decision:** Without a sign-in, `/ops/*`, `/admin/rules*` and `/metrics/*` are readable when `DEMO_READ_ONLY=true`, but applicant names are reduced to initials and employer names are hidden; PAN and phone are masked for everyone. Signed-in ops/admin see full names.
+- **Why:** A recruiter can explore every internal screen in seconds without credentials, while nothing a visitor typed into the public demo is shown in full to other visitors.
+
+### D-40 — Metrics computed on read from the event log; chart colours validated
+- **Decision:** `/metrics/funnel` and `/metrics/tat` compute every figure on request from `applications`, `application_events` and `decisions` (definitions in PRD §7 and returned in the response). Percentiles use linear interpolation between closest ranks. The dashboard's two-series chart uses a teal/amber pair that passed the colour validator (lightness, chroma, colour-blind separation, contrast); outcome colours are status colours and always carry a text label and icon. Every chart has a table view.
+- **Trade-off:** Fine for demo volumes; a real system would pre-aggregate.
+
 ### D-18 — E-sign and disbursal are simulated internal steps, not integrations
 - **Decision:** Mock e-sign and mock disbursal are steps inside the lender's workflow, logged as events, not adapters under `/mock/*`.
 - **Why:** The scope specifies exactly 4 mocked integrations (PAN, KYC, bureau, AA). Counting e-sign and disbursal as integrations would change that claim.

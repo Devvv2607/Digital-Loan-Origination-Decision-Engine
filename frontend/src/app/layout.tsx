@@ -33,9 +33,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <Link href="/" className="flex h-11 items-center gap-1 text-[1.05rem] font-semibold tracking-tight text-foreground">
               Lendwise <span className="font-normal text-muted-foreground">(Demo)</span>
             </Link>
-            <nav aria-label="Main" className="flex items-center gap-5 text-sm">
+            <nav aria-label="Main" className="flex items-center gap-1 text-sm sm:gap-3">
               <Link href="/apply" className="flex h-11 items-center px-2 text-foreground hover:text-primary">
                 Apply
+              </Link>
+              <Link href="/internal/metrics" className="flex h-11 items-center px-2 text-foreground hover:text-primary">
+                Internal tools
               </Link>
             </nav>
           </div>
