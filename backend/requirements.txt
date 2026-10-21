@@ -1,0 +1,10 @@
+# Runtime (pinned from a working install on Python 3.11)
+fastapi==0.156.8
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+pydantic-settings==2.16.1
+SQLAlchemy==2.1.5
+alembic==1.20.0
+psycopg[binary]==3.3.6
+PyJWT==2.15.1
+python-dotenv==1.2.4

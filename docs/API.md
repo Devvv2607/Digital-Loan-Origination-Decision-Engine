@@ -10,7 +10,7 @@ All example PANs, phone numbers and names are synthetic. Example PANs use the pr
 ## 0. Conventions
 
 ### 0.1 Base URL and format
-- Local: `http://localhost:8000` · Production: Render URL (Phase 7).
+- Local: `http://localhost:8000` (Postgres via Docker Compose on host port 55432) · Production: Render URL (Phase 7).
 - JSON request and response bodies; amounts in whole rupees (integers); rates as percentages with two decimals (`13.49`); timestamps ISO-8601 UTC.
 
 ### 0.2 Authentication and roles
@@ -82,6 +82,7 @@ List endpoints take `?page=1&page_size=20` (max 100) and return:
 |---|---|
 | `POST /auth/otp/send` | 5 per minute per IP (plus business limit: 3 sends per phone per hour) |
 | `POST /auth/otp/verify` | 10 per minute per IP |
+| `POST /auth/login` | 5 per minute per IP |
 | `POST /applications` | 10 per minute per IP |
 | `/mock/*` | 30 per minute per IP |
 

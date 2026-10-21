@@ -1,0 +1,21 @@
+[project]
+name = "lendwise-demo-backend"
+version = "0.1.0"
+description = "Lendwise (Demo) loan origination API. Demo prototype with simulated integrations and synthetic data; not affiliated with any bank or lender."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    # Starlette suggests the httpx2 fork; httpx works fine for the test client.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

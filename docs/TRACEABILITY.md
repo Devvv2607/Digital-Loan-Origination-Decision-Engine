@@ -2,6 +2,7 @@
 
 > Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.
 > Status: **Phase 0 skeleton.** Endpoints and screens are planned; test names are planned and marked ⏳. Each row is marked ✅ only when the test exists and passes. Completed in Phase 7.
+> Phase 1 progress: EC-01, EC-02, EC-14 and the state machine are covered by passing tests; US-01/US-02/US-09 endpoints exist (stories stay ⏳ until their screens exist).
 
 ## 1. User stories → endpoints → screens → tests
 
@@ -24,8 +25,8 @@
 
 | Edge case | Handling location (planned) | Test | Status |
 |---|---|---|---|
-| EC-01 | `services/otp.py` | `test_ec_01_otp_locked_after_three_wrong_attempts` | ⏳ |
-| EC-02 | `services/otp.py` | `test_ec_02_expired_otp_rejected_and_resend_capped` | ⏳ |
+| EC-01 | `services/otp.py` | `test_ec_01_otp_locked_after_three_wrong_attempts` | ✅ |
+| EC-02 | `services/otp.py` | `test_ec_02_expired_otp_rejected_and_resend_capped` | ✅ |
 | EC-03 | `schemas/pan.py`, frontend PAN field | `test_ec_03_invalid_pan_format_makes_no_provider_call` | ⏳ |
 | EC-04 | `services/pan.py` | `test_ec_04_pan_name_mismatch_requires_confirmation_and_feeds_f3` | ⏳ |
 | EC-05 | `integrations/retry.py`, `services/kyc.py` | `test_ec_05_kyc_timeout_retries_then_stays_pending` | ⏳ |
@@ -37,7 +38,7 @@
 | EC-11 | `engine/fraud/f1_duplicate_pan.py`, `services/pan.py` | `test_ec_11_duplicate_pan_blocked_with_409` | ⏳ |
 | EC-12 | `engine/fraud/f2_velocity.py` | `test_ec_12_velocity_flags_fourth_application` | ⏳ |
 | EC-13 | `engine/rules/r1_age.py` | `test_ec_13_age_out_of_range_declines` | ⏳ |
-| EC-14 | `services/expiry.py` | `test_ec_14_abandoned_application_expires_after_30_days` | ⏳ |
+| EC-14 | `services/expiry.py` | `test_ec_14_abandoned_application_expires_after_30_days` | ✅ |
 | EC-15 | `services/offers.py`, `engine/policy.py` | `test_ec_15_acceptance_honours_decision_time_policy` | ⏳ |
 
 ## 3. Rules and fraud checks → tests
@@ -56,7 +57,7 @@
 | F4 Income | `engine/fraud/f4_income.py` | 30% / 30.01%; skipped when AA declined | ⏳ |
 | Precedence | `engine/decision.py` | DECLINE beats REFER; REFER beats APPROVE; primary code ordering | ⏳ |
 | Pricing | `engine/pricing.py`, `engine/kfs.py` | EMI/APR reference values; invariants; zero/high fee; 12/60 months | ⏳ |
-| State machine | `state_machine/machine.py` | all 11 allowed + 53 rejected pairs | ⏳ |
+| State machine | `state_machine/machine.py` | all 11 allowed + 53 rejected pairs (`tests/test_state_machine.py`) | ✅ |
 
 ## 4. Acceptance checklist mapping
 
