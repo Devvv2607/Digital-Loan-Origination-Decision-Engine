@@ -1,7 +1,7 @@
 # Traceability Matrix
 
 > Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.
-> Status: **Phase 7, complete.** Every row names tests that exist and pass (402 backend tests, 98% coverage; Playwright happy path; 500/500 simulation). Backend test files are under `backend/tests/`; screens under `frontend/src/`. "UI check" says how the screen itself was verified: the Playwright test (`frontend/tests/e2e/happy-path.spec.ts`), or manual desktop and 390 px phone screenshots taken during Phases 4-7.
+> Status: **Phase 7, complete.** Every row names tests that exist and pass (403 backend tests, 98% coverage; Playwright happy path and cold-start notice; 500/500 simulation). Backend test files are under `backend/tests/`; screens under `frontend/src/`. "UI check" says how the screen itself was verified: the Playwright test (`frontend/tests/e2e/happy-path.spec.ts`), or manual desktop and 390 px phone screenshots taken during Phases 4-7.
 
 ## 1. User stories → endpoints → screens → tests
 

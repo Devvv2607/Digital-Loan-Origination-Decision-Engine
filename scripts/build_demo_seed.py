@@ -18,7 +18,9 @@ Re-timing rules
 - Constraints kept: the 20 held offers are generated in the last 6 days (still open at the
   as-of date, validity 7 days); each duplicate-PAN attempt comes after its original's offer;
   each velocity group's 5 applications arrive minutes apart, in the original order.
-- Referrals stay unreviewed (the queue is for visitors), so no review time is simulated.
+- About half the referrals were reviewed through the API by scripts/review_seed_referrals.py (D-46);
+  their review gap is drawn from DURATIONS["review"]. Referrals still pending arrive in the last
+  4 days, so the queue looks like a recent backlog.
 - Each application's own calendar dates (date of birth, PAN/KYC dates, decision date, R1 maturity
   date, provider payloads) move by the same number of days as its re-timed decision, so the
   recorded decision date matches its timestamp and every age is unchanged.
@@ -27,9 +29,9 @@ Phones are written in clear (they are the synthetic numbers already in
 reports/synthetic_applications.json); the loader stores only their keyed hash with the
 deployment's PII_HASH_KEY. OTP attempts and idempotency keys are not part of the seed.
 
-Usage (repo root; DATABASE_URL and PII_HASH_KEY from backend/.env point at the database that
-holds a clean simulation run on policy version 1):
-  backend/.venv/Scripts/python scripts/build_demo_seed.py
+Usage (repo root; PII_HASH_KEY from backend/.env; --database-url points at the copy of a clean
+simulation run on policy version 1 that scripts/review_seed_referrals.py has reviewed):
+  backend/.venv/Scripts/python scripts/build_demo_seed.py --database-url <copy URL>
 Writes backend/seed/demo_seed.json.gz and prints the resulting stage timings.
 """
 
@@ -87,6 +89,7 @@ DURATIONS = {
     "get_decision": (20, 60, "Asking for the decision"),
     "offer_accept": (6 * 3600, 36 * 3600, "Reading and accepting the offer"),
     "esign": (480, 1800, "E-signing the agreement"),
+    "review": (3 * 3600, 10 * 3600, "Analyst review of a referral (simulated outcome, D-46)"),
     "disburse": (2 * 3600, 8 * 3600, "Disbursal (simulated payout processing)"),
 }
 OFFER_ACCEPT_CAP = 6 * 86400  # always inside the 7-day offer validity
@@ -101,6 +104,8 @@ def lognormal(rng: random.Random, kind: str) -> float:
 
 def classify_event(e: ApplicationEvent) -> str:
     if e.event_type == "STATE_CHANGE":
+        if e.from_state == "REFERRED":
+            return "review"
         return {"DRAFT": "start", "KYC_PENDING": "details", "UNDER_ASSESSMENT": "get_decision",
                 "DISBURSED": "disburse"}.get(e.to_state, "system")
     if e.event_type == "OFFER_STATUS":
@@ -146,6 +151,9 @@ class Timeline:
 
     def length(self) -> float:
         return self.offset[-1]
+
+    def length_to(self, kind: str) -> float:
+        return next(o for o, k in zip(self.offset, self.kinds, strict=True) if k == kind)
 
     def at(self, kind: str) -> datetime:
         return self.arrival + timedelta(seconds=next(o for o, k in zip(self.offset, self.kinds, strict=True) if k == kind))
@@ -193,9 +201,10 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--env-file", type=Path, default=ROOT / "backend" / ".env")
     ap.add_argument("--output", type=Path, default=OUTPUT)
+    ap.add_argument("--database-url", help="database to read (default: DATABASE_URL from the env file)")
     args = ap.parse_args()
     env = dotenv_values(args.env_file)
-    engine = create_engine(env["DATABASE_URL"])
+    engine = create_engine((args.database_url or env["DATABASE_URL"]).replace("postgresql://", "postgresql+psycopg://", 1))
     rng = random.Random(RNG_SEED)
     data = json.loads(INPUT.read_text(encoding="utf-8"))
     recs = data["applications"]
@@ -207,9 +216,10 @@ def main() -> None:
         rules = db.scalar(select(func.count()).select_from(RuleConfig))
         version = db.scalar(select(func.max(RuleConfig.version)))
         reviews = db.scalar(select(func.count()).select_from(ReferralReview))
-        if (n_apps, rules, version, reviews) != (500, 11, 1, 0):
-            sys.exit(f"Refusing: expected a clean simulation run (500 applications, policy v1 with 11 rows, no reviews); "
-                     f"found {n_apps} applications, {rules} rule rows, version {version}, {reviews} reviews.")
+        if (n_apps, rules, version) != (500, 11, 1):
+            sys.exit(f"Refusing: expected a simulation run on policy v1 (500 applications, 11 rule rows); "
+                     f"found {n_apps} applications, {rules} rule rows, version {version}.")
+        review_list = list(db.scalars(select(ReferralReview)))
         apps = list(db.scalars(select(Application).order_by(Application.created_at)))
         events = list(db.scalars(select(ApplicationEvent).order_by(ApplicationEvent.seq)))
         calls = list(db.scalars(select(IntegrationCall)))
@@ -244,11 +254,17 @@ def main() -> None:
         rec, t = rec_of[a.id], tl[a.id]
         if rec["persona"] in ("velocity", "duplicate_pan"):
             continue
-        lo = AS_OF - timedelta(days=6) if rec["hold_offer"] else start
+        if rec["hold_offer"]:
+            lo = AS_OF - timedelta(days=6)
+        elif a.state == "REFERRED":
+            lo = AS_OF - timedelta(days=4)  # still pending: a recent backlog
+        else:
+            lo = start
         t.arrival = daytime_arrival(rng, lo, end - timedelta(seconds=t.length()))
     for members in groups.values():
         # One velocity group: each application starts a few minutes after the previous one got its decision.
-        t0 = daytime_arrival(rng, start, end - timedelta(days=1))
+        span = sum(tl[m.id].length_to("get_decision") + 20 * 60 for m in members) + max(tl[m.id].length() for m in members)
+        t0 = daytime_arrival(rng, start, end - timedelta(seconds=span))
         for m in members:
             t = tl[m.id]
             t.arrival = t0
@@ -260,10 +276,12 @@ def main() -> None:
             lo = original.new(max(o.created_at for o in offers if o.application_id == app_by_rec[rec["duplicate_of"]].id)) + timedelta(hours=1)
             t.arrival = daytime_arrival(rng, lo, end - timedelta(seconds=t.length()))
     assert all(t.arrival is not None for t in tl.values())
-    assert all(t.arrival + timedelta(seconds=t.length()) <= AS_OF for t in tl.values())
+    late = [(rec_of[a.id]["persona"], rec_of[a.id]["id"], round(tl[a.id].length() / 3600, 1)) for a in apps
+            if tl[a.id].arrival + timedelta(seconds=tl[a.id].length()) > AS_OF]
+    assert not late, late
 
     # ---- per-application calendar shift: the day the re-timed journey was decided (or last active), in IST
-    decided_at = {d.application_id: d.created_at for d in decisions}
+    decided_at = {d.application_id: d.created_at for d in decisions if d.source == "ENGINE"}
     day_shift = {}
     for a in apps:
         t = tl[a.id]
@@ -310,6 +328,11 @@ def main() -> None:
             if getattr(o, k):
                 r[k] = t.new(getattr(o, k)).isoformat()
         offer_rows.append(r)
+    review_rows = []
+    for rv in review_list:
+        r = row(rv)
+        r["created_at"] = tl[rv.application_id].new(rv.created_at).isoformat()
+        review_rows.append(r)
     first_app = defaultdict(list)
     for a in apps:
         first_app[a.applicant_id].append(tl[a.id].arrival)
@@ -363,11 +386,12 @@ def main() -> None:
         "resulting_stage_timings": timings,
         "counts": {"applicants": len(applicant_rows), "applications": len(app_rows), "events": len(ev_rows),
                    "integration_calls": len(call_rows), "decisions": len(dec_rows), "offers": len(offer_rows),
-                   "mock_profiles": len(profile_rows)},
+                   "mock_profiles": len(profile_rows), "referral_reviews": len(review_rows)},
         "note": "Synthetic data. Stage durations are SIMULATED from the assumed distributions above, not measured.",
     }
     seed = {"meta": meta, "mock_profiles": profile_rows, "applicants": applicant_rows, "applications": app_rows,
-            "application_events": ev_rows, "integration_calls": call_rows, "decisions": dec_rows, "offers": offer_rows}
+            "application_events": ev_rows, "integration_calls": call_rows, "decisions": dec_rows, "offers": offer_rows,
+            "referral_reviews": review_rows}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with gzip.GzipFile(args.output, "wb", mtime=0) as fh:
         fh.write(json.dumps(seed, ensure_ascii=False, sort_keys=True).encode("utf-8"))

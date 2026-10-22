@@ -23,7 +23,16 @@ from sqlalchemy.orm import Session
 
 from app.core.masking import hash_pii
 from app.engine.policy import seed_policy
-from app.models import Applicant, Application, ApplicationEvent, Decision, IntegrationCall, MockProfile, Offer
+from app.models import (
+    Applicant,
+    Application,
+    ApplicationEvent,
+    Decision,
+    IntegrationCall,
+    MockProfile,
+    Offer,
+    ReferralReview,
+)
 
 DEFAULT_SEED_PATH = Path(__file__).resolve().parents[2] / "seed" / "demo_seed.json.gz"
 
@@ -31,7 +40,7 @@ DEFAULT_SEED_PATH = Path(__file__).resolve().parents[2] / "seed" / "demo_seed.js
 TABLES = [
     ("mock_profiles", MockProfile), ("applicants", Applicant), ("applications", Application),
     ("application_events", ApplicationEvent), ("integration_calls", IntegrationCall),
-    ("decisions", Decision), ("offers", Offer),
+    ("decisions", Decision), ("offers", Offer), ("referral_reviews", ReferralReview),
 ]
 
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")

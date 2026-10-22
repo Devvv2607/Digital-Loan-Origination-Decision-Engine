@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Public_Sans, Source_Serif_4 } from "next/font/google";
 
 import { DemoBanner } from "@/components/demo-banner";
+import { ServerWakeNotice } from "@/components/server-wake-notice";
 import "./globals.css";
 
 const publicSans = Public_Sans({ subsets: ["latin"], variable: "--font-public-sans", display: "swap" });
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </nav>
           </div>
         </header>
+        <ServerWakeNotice />
         <main id="main" className="flex-1">
           {children}
         </main>

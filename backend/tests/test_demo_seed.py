@@ -10,7 +10,8 @@ from app.core.db import get_db
 from app.core.masking import hash_pii
 from app.engine.types import age_on
 from app.main import create_app
-from app.models import Applicant, Application, ApplicationEvent, Decision, Offer, RuleConfig
+from app.models import Applicant, Application, ApplicationEvent, Decision, Offer, ReferralReview, RuleConfig
+from app.state_machine.machine import illegal_transitions_in_log
 from app.services.demo_seed import read_seed, shift_date, shift_days, shift_value
 from tests.conftest import ADMIN, START, internal_headers_for
 
@@ -68,7 +69,9 @@ def test_reset_restores_the_seeded_state(seeded_client, db_session):
     result = seeded_client.reset_result
     assert result["seeded_applications"] == 500 and result["policy_version"] == 1
     count = lambda m: db_session.scalar(select(func.count()).select_from(m))  # noqa: E731
-    assert count(Application) == 500 and count(Decision) == 470 and count(Offer) == 182
+    counts = SEED["meta"]["counts"]
+    assert count(Application) == 500 and count(Decision) == counts["decisions"] and count(Offer) == counts["offers"]
+    assert count(ReferralReview) == counts["referral_reviews"] == 108  # about half of the 218 referrals
     assert count(RuleConfig) == 11 and db_session.scalar(select(func.max(RuleConfig.version))) == 1
     assert db_session.scalar(select(func.count()).where(Application.is_seeded.is_(False))) == 0
     # Moved to "now": nothing in the future, the newest activity within a day, the window is ~14 days.
@@ -85,7 +88,7 @@ def test_reset_restores_the_seeded_state(seeded_client, db_session):
 
 
 def test_shifted_dates_keep_every_recorded_age(seeded_client, db_session):
-    for d in db_session.scalars(select(Decision)):
+    for d in db_session.scalars(select(Decision).where(Decision.source == "ENGINE")):
         inputs = d.inputs_snapshot["inputs"]
         r1 = next(r for r in d.rule_results if r["rule_id"] == "R1")
         if r1["result"] == "NOT_EVALUATED":
@@ -108,5 +111,22 @@ def test_tat_is_flagged_as_simulated_timings(seeded_client):
     assert 3 * 60 < draft["median"] < 15 * 60  # assumed median 6 min
     approved = next(s for s in tat["states"] if s["state"] == "APPROVED")
     assert approved["median"] > 3600  # offer acceptance takes hours
+    referred = next(s for s in tat["states"] if s["state"] == "REFERRED")
+    assert referred["n_completed"] == 108 and referred["currently_in_state"] == 110
+    assert 3600 < referred["median"] < 6 * 3600  # assumed median 3 h
     queue = seeded_client.get("/ops/referrals?page_size=100").json()
-    assert queue["total"] == 218
+    assert queue["total"] == 110
+
+
+def test_every_seeded_timeline_is_legal_and_in_time_order(seeded_client, db_session):
+    by_app: dict = {}
+    for e in db_session.scalars(select(ApplicationEvent).order_by(ApplicationEvent.seq)):
+        by_app.setdefault(e.application_id, []).append(e)
+    assert len(by_app) == 500
+    for events in by_app.values():
+        assert illegal_transitions_in_log(events) == []
+        times = [e.created_at for e in events]
+        assert times == sorted(times)
+    for rv in db_session.scalars(select(ReferralReview)):
+        referred_at = next(e.created_at for e in by_app[rv.application_id] if e.to_state == "REFERRED")
+        assert rv.created_at > referred_at

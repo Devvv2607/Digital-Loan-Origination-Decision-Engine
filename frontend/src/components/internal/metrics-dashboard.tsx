@@ -293,7 +293,7 @@ function TatChart({ tat }: { tat: Tat }) {
     <Panel title="Time in each stage"
       badge={tat.simulated_timings ? "Simulated timings" : undefined}
       intro={`${tat.definition} Shown for stages at least one application has finished.${tat.simulated_timings
-        ? ` ${tat.seeded_applications} of ${tat.applications} applications are seeded demo data whose stage durations are simulated from assumed distributions (for example e-KYC in minutes, offer acceptance in hours), not measured.`
+        ? ` ${tat.seeded_applications} of ${tat.applications} applications are seeded demo data whose stage durations are simulated from assumed distributions (for example e-KYC in minutes, analyst review and offer acceptance in hours), not measured. Analyst decisions on seeded referrals are simulated too.`
         : ""}`}
       table={
         <table className="figures mt-2 w-full min-w-[30rem] text-left">

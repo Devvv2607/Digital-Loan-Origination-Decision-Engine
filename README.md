@@ -13,7 +13,7 @@ A working prototype of a digital personal-loan journey: phone OTP, PAN, e-KYC an
 | API docs (Swagger) | _added after deployment_ |
 | Health check | _added after deployment_ |
 
-Start from the landing page with one of five one-click personas (strong borrower, new to credit, high FOIR, duplicate PAN, income mismatch). The internal tools (`/internal/metrics`, `/internal/referrals`, `/internal/policy`) are public in read-only mode; changes need an ops or admin login. The free API host sleeps when idle, so the first request can take up to a minute.
+Start from the landing page with one of five one-click personas (strong borrower, new to credit, high FOIR, duplicate PAN, income mismatch). The internal tools (`/internal/metrics`, `/internal/referrals`, `/internal/policy`) are public in read-only mode; changes need an ops or admin login. The free API host sleeps when idle, so the first request can take up to a minute; the app shows a "Waking up the demo server" notice and retries instead of an error.
 
 ## Problem, users, solution
 
@@ -55,7 +55,7 @@ flowchart LR
     GH -->|POST /admin/jobs/expire| API
 ```
 
-Backend: FastAPI, SQLAlchemy 2, Alembic, PostgreSQL, PyJWT. Frontend: Next.js 15, React 19, Tailwind 4, shadcn/ui, Recharts. Tests: pytest (402 tests, 98% coverage) and Playwright.
+Backend: FastAPI, SQLAlchemy 2, Alembic, PostgreSQL, PyJWT. Frontend: Next.js 15, React 19, Tailwind 4, shadcn/ui, Recharts. Tests: pytest (403 tests, 98% coverage) and Playwright.
 
 ## State machine
 
@@ -145,7 +145,7 @@ These rates describe a test set deliberately skewed toward edge cases, not an ap
 
 ## Key product decisions
 
-The full log is in [docs/DECISIONS.md](docs/DECISIONS.md) (D-01 to D-45). The ones that shape the product most:
+The full log is in [docs/DECISIONS.md](docs/DECISIONS.md) (D-01 to D-46). The ones that shape the product most:
 
 - **Refer, don't decline, when data is missing or thin** (D-08, D-09, D-10). A bureau outage, a declined bank-data consent or a thin credit file sends the case to an analyst instead of turning away a possibly good borrower.
 - **Evaluate every rule and keep every reason** (D-11, D-23). Analysts see the full picture; the applicant sees the one most useful reason.
@@ -163,7 +163,7 @@ The full log is in [docs/DECISIONS.md](docs/DECISIONS.md) (D-01 to D-45). The on
 - **Not a production underwriting system.** The rules are illustrative, R2's calibration does not establish risk equivalence, and there are no repayment outcomes to validate against. The KFS-style screen is not a compliant disclosure.
 - **Test set, not a population.** The 500 applications over-represent edge cases, so their approval and referral rates are not forecasts.
 - **Demo-scale engineering.** Metrics are computed on read, rate limits are in memory on one instance, and the free hosting tier sleeps when idle.
-- **Simulated timings on the live dashboard** come from assumed distributions, not observed behaviour; referrals in the seed are never reviewed, so referral-review time is not shown.
+- **Simulated timings on the live dashboard** come from assumed distributions, not observed behaviour. About half the seeded referrals carry simulated analyst reviews, decided by a fixed rule per reason code (D-46); the rest wait in the queue for visitors.
 - **Expiry job** runs from a GitHub Actions schedule (every 6 hours), and also lazily whenever an application is opened.
 
 ## Run locally
@@ -192,8 +192,8 @@ Set `DEMO_SEED=true` in `backend/.env` before the first start to load the 500 se
 **Tests**
 
 ```bash
-cd backend && .venv/bin/python -m pytest --cov          # 402 tests, 98% coverage
-cd frontend && npm run build && npm run test:e2e        # backend running with CLOCK_START=2026-10-22T09:00:00+05:30
+cd backend && .venv/bin/python -m pytest --cov          # 403 tests, 98% coverage
+cd frontend && npm run build && npm run test:e2e        # happy path + cold-start notice; backend running with CLOCK_START=2026-10-22T09:00:00+05:30
 python scripts/check_api_docs.py                        # docs/API.md matches the OpenAPI spec
 ```
 
@@ -202,12 +202,14 @@ python scripts/check_api_docs.py                        # docs/API.md matches th
 ```bash
 backend/.venv/bin/python scripts/generate_applications.py   # reproduces reports/synthetic_applications.json
 backend/.venv/bin/python scripts/run_simulation.py          # writes reports/simulation_report.md
-backend/.venv/bin/python scripts/build_demo_seed.py         # optional: rebuilds the deployed seed from that run
+# optional, rebuilding the deployed seed: copy that database, review half the referrals on the copy, then build
+backend/.venv/bin/python scripts/review_seed_referrals.py --database-url <copy>   # backend on the copy, CLOCK_START=...T12:00:00+05:30
+backend/.venv/bin/python scripts/build_demo_seed.py --database-url <copy>
 ```
 
 ## Deployment
 
-Neon (Postgres) + Render (API, `render.yaml` Blueprint) + Vercel (frontend, root directory `frontend`). On start, the API runs migrations and, with `DEMO_SEED=true` on an empty database, loads policy version 1 and the 500 seeded applications. Secrets live only in the hosts' environment settings; see [D-45](docs/DECISIONS.md) for the steps.
+Neon (Postgres) + Render (API, `render.yaml` Blueprint) + Vercel (frontend, root directory `frontend`). On start, the API runs migrations and, with `DEMO_SEED=true` on an empty database, loads policy version 1 and the 500 seeded applications. Secrets live only in the hosts' environment settings. Step-by-step instructions: [DEPLOY.md](DEPLOY.md).
 
 ## Documentation
 
