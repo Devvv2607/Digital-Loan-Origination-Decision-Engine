@@ -126,12 +126,17 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=882)
     parser.add_argument("--output", type=Path, default=OUTPUT)
     parser.add_argument("--simulation-results", type=Path, default=ROOT / "reports" / "simulation_results.csv")
+    parser.add_argument("--report-only", action="store_true",
+                        help="recompute and report (step 4), but do not rewrite the seed file")
     args = parser.parse_args()
 
     seed = build_seed(args.approval_rate, args.refer_band_width, args.sample_size, args.seed)
-    args.output.write_text(json.dumps(seed, indent=2) + "\n", encoding="utf-8")
     cal = seed["calibration"]
-    print(f"Wrote {args.output.relative_to(ROOT) if args.output.is_relative_to(ROOT) else args.output}")
+    if args.report_only:
+        print(f"Report only: {args.output} not rewritten")
+    else:
+        args.output.write_text(json.dumps(seed, indent=2) + "\n", encoding="utf-8")
+        print(f"Wrote {args.output.relative_to(ROOT) if args.output.is_relative_to(ROOT) else args.output}")
     print(f"  Reference approval rate: {args.approval_rate:.1%}; refer band: next {args.refer_band_width:.0%}")
     print(f"  R2 approve_threshold = {cal['approve_threshold']}, refer_floor = {cal['refer_floor']}")
     print(f"  On the {cal['sample_size']:,}-score population sample: pass {cal['achieved_pass_share']:.1%}, "
