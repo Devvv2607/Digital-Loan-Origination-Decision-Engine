@@ -4,6 +4,7 @@ Required variables are validated at startup so a misconfigured deploy fails fast
 with a readable message instead of failing on the first request.
 """
 
+from datetime import datetime
 from functools import lru_cache
 from typing import Literal
 
@@ -36,6 +37,9 @@ class Settings(BaseSettings):
     provider_retry_backoff_ms: int = Field(default=500, ge=0, le=10_000)
     rate_limit_profile: Literal["default", "simulation", "off"] = "default"
     auto_seed_policy: bool = True  # seed policy/seed_policy.json on startup if no policy exists
+    # Optional fixed start for the business clock (ISO 8601 with offset). Used for the
+    # simulation and e2e runs so age-dependent cases never expire. Not allowed in production.
+    clock_start: datetime | None = None
 
     cors_origins: str = "http://localhost:3000"
     log_level: str = "INFO"
@@ -46,6 +50,10 @@ class Settings(BaseSettings):
             raise ValueError("OPS_USERNAME and OPS_PASSWORD must be set together")
         if self.ops_password is not None and len(self.ops_password) < 8:
             raise ValueError("OPS_PASSWORD must be at least 8 characters")
+        if self.clock_start is not None and self.clock_start.tzinfo is None:
+            raise ValueError("CLOCK_START needs a timezone offset, e.g. 2026-10-22T09:00:00+05:30")
+        if self.env == "production" and self.clock_start is not None:
+            raise ValueError("CLOCK_START must not be set in production")
         if self.env == "production":
             for name in ("jwt_secret", "pii_hash_key", "admin_password", "ops_password"):
                 value = getattr(self, name)

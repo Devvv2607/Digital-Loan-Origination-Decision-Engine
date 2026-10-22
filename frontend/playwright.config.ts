@@ -2,7 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * End-to-end test for the applicant happy path. Needs the backend running (with its
- * database) at NEXT_PUBLIC_API_URL; Playwright starts the built frontend itself.
+ * database) at NEXT_PUBLIC_API_URL, started with CLOCK_START=2026-10-22T09:00:00+05:30 so
+ * the persona's age-based checks are evaluated on a fixed date; Playwright starts the built
+ * frontend itself.
  *   npm run build && npm run test:e2e
  */
 export default defineConfig({

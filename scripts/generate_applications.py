@@ -18,7 +18,7 @@ import json
 import math
 import random
 from collections import Counter
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -27,6 +27,9 @@ SEED_POLICY = ROOT / "backend" / "policy" / "seed_policy.json"
 OUTPUT = ROOT / "reports" / "synthetic_applications.json"
 GENERATOR_VERSION = "1.0.0"
 DEFAULT_SEED = 20261022
+# Fixed as-of date. Ages are designed around it and the simulation runs the backend's clock on it
+# (CLOCK_START), so the data and its age cases never expire.
+AS_OF = date(2026, 10, 22)
 TOTAL = 500
 
 # Persona mix (DECISIONS.md D-29). Counts must sum to 500.
@@ -416,8 +419,8 @@ def generate(seed: int, as_of: date) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--seed", type=int, default=DEFAULT_SEED)
-    ap.add_argument("--as-of", type=date.fromisoformat, default=datetime.now(UTC).date(),
-                    help="Decision date the ages are designed around (default: today, UTC).")
+    ap.add_argument("--as-of", type=date.fromisoformat, default=AS_OF,
+                    help=f"Decision date the ages are designed around (default: the fixed {AS_OF}).")
     ap.add_argument("--output", type=Path, default=OUTPUT)
     args = ap.parse_args()
     data = generate(args.seed, args.as_of)

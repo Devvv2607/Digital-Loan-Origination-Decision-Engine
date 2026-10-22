@@ -5,13 +5,18 @@ submit, PAN, e-KYC, AA consent, assess, and (for approvals) accept, e-sign and d
 Mock-provider fixtures are registered through PUT /mock/profiles (admin), like a provider
 sandbox. Nothing here calls engine functions directly.
 
-Pre-flight guards: the API must be on the seeded policy (version 1, no edits) and hold no
-applications, unless overridden. Expected outcomes are read from the generator output and are
-never modified; mismatches are listed in the report and the script exits non-zero.
+Pre-flight guards: the API must be on the seeded policy (version 1, no edits), hold no
+applications, and run its business clock on the dataset's as-of date (CLOCK_START), unless
+overridden. Expected outcomes are read from the generator output and are never modified;
+mismatches are listed in the report and the script exits non-zero.
 
-Usage (repo root, backend running with RATE_LIMIT_PROFILE=simulation):
+Usage (repo root, backend started with RATE_LIMIT_PROFILE=simulation and
+CLOCK_START=2026-10-22T09:00:00+05:30, the as-of date in the input file):
   backend/.venv/Scripts/python scripts/run_simulation.py
 Outputs: reports/simulation_results.csv, reports/simulation_report.md
+
+--report-only DIR writes the CSV and report to DIR instead (for experiments such as a policy
+mutation check); nothing under reports/ is touched.
 """
 
 import argparse
@@ -177,9 +182,18 @@ def main() -> None:
     ap.add_argument("--env-file", type=Path, default=ROOT / "backend" / ".env", help="for ADMIN_USERNAME/ADMIN_PASSWORD")
     ap.add_argument("--allow-non-seed-policy", action="store_true")
     ap.add_argument("--allow-existing-data", action="store_true")
+    ap.add_argument("--report-only", type=Path, metavar="DIR",
+                    help="write the CSV and report to DIR, not reports/ (experiments; never committed)")
     ap.add_argument("--server-settings", default="RATE_LIMIT_PROFILE=simulation, MOCK_LATENCY_MS=20, PROVIDER_RETRY_BACKOFF_MS=500 (default)",
                     help="recorded in the report: how the backend was launched for this run")
     args = ap.parse_args()
+    global CSV_OUT, MD_OUT
+    if args.report_only:
+        out_dir = args.report_only.resolve()
+        if out_dir == (ROOT / "reports").resolve():
+            sys.exit("--report-only must point somewhere other than reports/")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        CSV_OUT, MD_OUT = out_dir / "simulation_results.csv", out_dir / "simulation_report.md"
 
     env = {**dotenv_values(args.env_file), **{k: v for k, v in os.environ.items() if k.startswith("ADMIN_")}}
     data = json.loads(args.input.read_text(encoding="utf-8"))
@@ -194,6 +208,11 @@ def main() -> None:
     seeded = health["policy_version"] == 1 and versions["total"] == 11
     if not seeded and not args.allow_non_seed_policy:
         sys.exit(f"Refusing to run: policy version {health['policy_version']} with {versions['total']} rule rows; expected seed version 1 (11 rows).")
+    clock = health.get("clock") or {}
+    if clock.get("now", "")[:10] != gen_meta["as_of_date"]:
+        sys.exit(f"Refusing to run: the API's business clock reads {clock.get('now')} ({clock.get('kind')}), but the data is "
+                 f"designed around {gen_meta['as_of_date']}. Start the backend with "
+                 f"CLOCK_START={gen_meta['as_of_date']}T09:00:00+05:30.")
     existing = api.ok("GET", "/metrics/funnel")["stages"][0]["count"]
     if existing and not args.allow_existing_data:
         sys.exit(f"Refusing to run: the API already holds {existing} applications. Reset the database first.")
@@ -244,7 +263,8 @@ def main() -> None:
     funnel = api.ok("GET", "/metrics/funnel")
     tat = api.ok("GET", "/metrics/tat")
     write_csv(rows)
-    write_report(rows, gen_meta, health, versions, r2, funnel, tat, started, run_seconds, args.api, args.server_settings)
+    write_report(rows, gen_meta, health, versions, r2, funnel, tat, started, run_seconds, args.api, args.server_settings,
+                 seeded, bool(args.report_only))
     mismatches = [r for r in rows if not r["match"]]
     print(f"Done in {run_seconds:.0f}s. Match rate {500 - len(mismatches)}/500. Report: {MD_OUT}")
     if mismatches:
@@ -262,7 +282,8 @@ def write_csv(rows: list[dict]) -> None:
         w.writerows(rows)
 
 
-def write_report(rows, gen_meta, health, versions, r2, funnel, tat, started, run_seconds, api_url, server_settings) -> None:
+def write_report(rows, gen_meta, health, versions, r2, funnel, tat, started, run_seconds, api_url, server_settings,
+                 seeded=True, report_only=False) -> None:
     n = len(rows)
     actual = Counter(r["actual_outcome"] for r in rows)
     decided = [r for r in rows if r["actual_outcome"] in DECISIONS]
@@ -274,6 +295,8 @@ def write_report(rows, gen_meta, health, versions, r2, funnel, tat, started, run
     a("")
     a("> Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.")
     a("> Generated by `scripts/run_simulation.py` from a real run against the API. Do not edit by hand.")
+    if report_only:
+        a("> **Report-only experiment run** (`--report-only`): written outside reports/ and not a committed result.")
     a("")
     a("**What this shows, and what it doesn't.** A 100% match on these defined synthetic scenarios shows that the engine, "
       "state machine and API behave as specified. It does **not** show production readiness or real-world credit-risk "
@@ -287,16 +310,19 @@ def write_report(rows, gen_meta, health, versions, r2, funnel, tat, started, run
     for k, v in [
         ("Random seed", gen_meta["random_seed"]), ("Generator version", gen_meta["generator_version"]),
         ("Simulator version", SIMULATOR_VERSION), ("Ages designed around (as-of date)", gen_meta["as_of_date"]),
-        ("Policy version used", f"{health['policy_version']} (seed policy; {versions['total']} rule rows, no edits)"),
+        ("Policy version used", f"{health['policy_version']} (seed policy; {versions['total']} rule rows, no edits)" if seeded
+         else f"{health['policy_version']} (NOT the seed policy; {versions['total']} rule rows)"),
         ("R2 thresholds in force", f"approve ≥ {r2['approve_threshold']}, refer {r2['refer_floor']}–{r2['approve_threshold'] - 1}"),
+        ("Business clock", f"{health['clock']['kind']}, started {health['clock']['now'][:19]} (CLOCK_START)"),
         ("Git commit", git_commit()), ("API", api_url), ("Server settings", server_settings),
         ("Run started (UTC)", started.isoformat(timespec="seconds")),
         ("Run time", f"{run_seconds:.0f} s"), ("Applications", n),
     ]:
         a(f"| {k} | {v} |")
     a("")
-    a("Re-run: reset the database, start the backend with `RATE_LIMIT_PROFILE=simulation`, then run "
-      "`scripts/generate_applications.py --as-of <date>` and `scripts/run_simulation.py`.")
+    a(f"Re-run: reset the database, start the backend with `RATE_LIMIT_PROFILE=simulation` and "
+      f"`CLOCK_START={gen_meta['as_of_date']}T09:00:00+05:30`, then run `scripts/run_simulation.py`. The as-of date is fixed, "
+      "so the input file and its age cases never expire; `scripts/generate_applications.py` regenerates it byte for byte.")
     a("")
 
     a("## Outcome distribution")
@@ -421,7 +447,7 @@ def write_report(rows, gen_meta, health, versions, r2, funnel, tat, started, run
         ("Exactly 500 applications run through the API", n == 500 and all(r["application_id"] for r in rows)),
         ("Reason codes complete for the outcome (every decline has a DECLINE reason; every referral a REFER reason and no DECLINE; approvals neither)",
          all(r["reason_codes_complete"] for r in rows)),
-        ("Policy version recorded on every decision (and equal to the seed version)",
+        ("Policy version recorded on every decision (and equal to the version in force)",
          all(r["policy_version"] == health["policy_version"] for r in decided)),
         ("Only legal state transitions in every application's event log", all(r["legal_transitions"] for r in rows)),
         ("No request errors", not any(r["actual_outcome"].startswith("ERROR") for r in rows)),

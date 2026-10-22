@@ -1,11 +1,13 @@
 """Core utilities: config validation, masking, idempotency, rate limits, error shapes, health."""
 
 import logging
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.core.clock import AnchoredClock
 from app.core.config import ConfigurationError, load_settings
 from app.core.db import get_db, make_engine
 from app.core.masking import hash_pii, mask_pan, mask_phone, mask_text, mask_value
@@ -15,7 +17,7 @@ from tests.conftest import START
 
 REQUIRED_ENV = [
     "DATABASE_URL", "JWT_SECRET", "PII_HASH_KEY", "ADMIN_USERNAME", "ADMIN_PASSWORD",
-    "OPS_USERNAME", "OPS_PASSWORD", "ENV",
+    "OPS_USERNAME", "OPS_PASSWORD", "ENV", "CLOCK_START",
 ]
 GOOD = {
     "database_url": "postgresql+psycopg://u:p@localhost/db",
@@ -182,6 +184,33 @@ def test_simulation_and_off_profiles_relax_technical_limits(settings, clock, db_
     assert codes == {401}
 
 
+# ---------- clock ----------
+
+
+def test_clock_start_must_have_offset_and_is_refused_in_production(clean_env):
+    with pytest.raises(ConfigurationError, match="timezone offset"):
+        load_settings(_env_file=None, clock_start="2026-10-22T09:00:00", **GOOD)
+    with pytest.raises(ConfigurationError, match="CLOCK_START must not be set in production"):
+        load_settings(_env_file=None, env="production", clock_start="2026-10-22T09:00:00+05:30", **GOOD)
+
+
+def test_anchored_clock_starts_at_fixed_instant_and_advances_in_real_time():
+    start = datetime(2026, 10, 22, 9, 0, tzinfo=UTC)
+    c = AnchoredClock(start)
+    first, second = c.now(), c.now()
+    assert start <= first <= second < start + timedelta(seconds=5)
+    with pytest.raises(ValueError):
+        AnchoredClock(datetime(2026, 10, 22))
+
+
+def test_app_uses_anchored_clock_when_clock_start_set(settings, db_session):
+    app = create_app(settings.model_copy(update={"clock_start": datetime(2026, 10, 22, 9, 0, tzinfo=UTC)}))
+    app.dependency_overrides[get_db] = lambda: db_session
+    with TestClient(app) as c:
+        clock = c.get("/health").json()["clock"]
+    assert clock["kind"] == "anchored" and clock["now"].startswith("2026-10-22T09:00")
+
+
 # ---------- error shapes ----------
 
 def test_unknown_route_uses_error_shape(client):
@@ -213,6 +242,7 @@ def test_health_ok(client):
     r = client.get("/health")
     assert r.status_code == 200
     assert r.json()["status"] == "ok" and r.json()["database"] == "ok"
+    assert r.json()["clock"] == {"kind": "frozen", "now": START.isoformat()}
 
 
 def test_health_reports_database_down(app):

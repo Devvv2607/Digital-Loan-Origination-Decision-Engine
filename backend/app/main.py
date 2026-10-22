@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api import admin, applications, auth, decisions, demo, health, mock, ops, verification
-from app.core.clock import Clock
+from app.core.clock import AnchoredClock, Clock
 from app.core.config import Settings, load_settings
 from app.core.db import make_engine, make_sessionmaker
 from app.core.errors import register_error_handlers
@@ -46,7 +46,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     )
     engine = make_engine(settings.database_url)
     app.state.settings = settings
-    app.state.clock = clock or Clock()
+    app.state.clock = clock or (AnchoredClock(settings.clock_start) if settings.clock_start else Clock())
     app.state.engine = engine
     app.state.sessionmaker = make_sessionmaker(engine)
     app.state.rate_limiter = RateLimiter()

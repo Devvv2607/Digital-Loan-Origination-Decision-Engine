@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/health", summary="Liveness and database connectivity")
-def health(db: Session = Depends(get_db)) -> JSONResponse:
+def health(request: Request, db: Session = Depends(get_db)) -> JSONResponse:
     try:
         db.execute(text("SELECT 1"))
         policy_version = db.scalar(select(func.max(RuleConfig.version)))
@@ -30,6 +30,8 @@ def health(db: Session = Depends(get_db)) -> JSONResponse:
                 {"status": "degraded", "database": "unreachable"},
             ),
         )
-    return JSONResponse(
-        {"status": "ok", "database": "ok", "version": __version__, "policy_version": policy_version}
-    )
+    clock = request.app.state.clock
+    return JSONResponse({
+        "status": "ok", "database": "ok", "version": __version__, "policy_version": policy_version,
+        "clock": {"kind": clock.kind, "now": clock.now().isoformat()},
+    })
