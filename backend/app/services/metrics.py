@@ -145,8 +145,15 @@ def tat(db: Session, frm: date | None = None, to: date | None = None) -> dict[st
         rows.append({
             "state": state.value,
             "n_completed": len(d),
-            "median": round(percentile(d, 0.5), 1) if d else None,
-            "p90": round(percentile(d, 0.9), 1) if d else None,
+            "median": round(percentile(d, 0.5), 3) if d else None,
+            "p90": round(percentile(d, 0.9), 3) if d else None,
             "currently_in_state": current[state.value],
         })
-    return {"unit": "seconds", "states": rows, "definition": DEFINITIONS["tat"]}
+    seeded = sum(a.is_seeded for a in apps)
+    return {
+        "unit": "seconds", "states": rows, "definition": DEFINITIONS["tat"],
+        # Seeded demo applications carry simulated stage durations, not measurements (D-44).
+        "simulated_timings": seeded > 0,
+        "seeded_applications": seeded,
+        "applications": len(apps),
+    }

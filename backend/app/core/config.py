@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Optional fixed start for the business clock (ISO 8601 with offset). Used for the
     # simulation and e2e runs so age-dependent cases never expire. Not allowed in production.
     clock_start: datetime | None = None
+    # Deployed demo: load backend/seed/demo_seed.json.gz (500 simulated applications) into an
+    # empty database on startup, and restore it on "Reset demo data" (D-42, D-44).
+    demo_seed: bool = False
 
     cors_origins: str = "http://localhost:3000"
     log_level: str = "INFO"

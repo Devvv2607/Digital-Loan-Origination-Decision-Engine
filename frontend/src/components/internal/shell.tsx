@@ -112,7 +112,7 @@ function AccessControl() {
           {user.role === "admin" ? (
             resetState === "confirm" ? (
               <span className="inline-flex items-center gap-2">
-                Delete all demo applications?
+                Restore the starting demo data? New applications and policy edits are removed.
                 <Button variant="destructive" className="h-11 px-3" onClick={reset}>Yes, reset</Button>
                 <Button variant="ghost" className="h-11 px-3" onClick={() => setResetState("idle")}>Cancel</Button>
               </span>

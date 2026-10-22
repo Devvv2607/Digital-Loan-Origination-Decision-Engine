@@ -6,6 +6,7 @@ Run locally:  uvicorn app.main:create_app --factory --reload
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from sqlalchemy import func, select
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
@@ -17,6 +18,8 @@ from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
 from app.core.rate_limit import RateLimiter
 from app.engine.policy import seed_policy
+from app.models import RuleConfig
+from app.services.demo_seed import load_demo_seed
 
 DISCLAIMER = (
     "**Demo prototype. Simulated integrations and synthetic data. "
@@ -32,9 +35,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        if settings.auto_seed_policy:
-            # Load policy/seed_policy.json as version 1 if the policy table is empty.
-            with app.state.sessionmaker() as db:
+        with app.state.sessionmaker() as db:
+            if settings.demo_seed and db.scalar(select(func.count()).select_from(RuleConfig)) == 0:
+                # Deployed demo, first start: policy version 1 plus the 500 seeded applications.
+                load_demo_seed(db, app.state.clock.now(), settings.pii_hash_key)
+            elif settings.auto_seed_policy:
+                # Load policy/seed_policy.json as version 1 if the policy table is empty.
                 seed_policy(db, app.state.clock.now())
         yield
 

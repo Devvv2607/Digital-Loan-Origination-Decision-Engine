@@ -38,14 +38,15 @@ def expire_job(
 
 
 @router.post("/demo/reset", responses=error_responses(401, 403),
-             summary="Reset demo data: delete applications and fixtures, restore policy version 1")
+             summary="Reset demo data: restore policy version 1 and, on the deployed demo, the 500 seeded applications")
 def demo_reset(
     request: Request,
     _: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
     clock: Clock = Depends(get_clock),
 ) -> dict:
-    result = reset_demo_data(db, clock.now())
+    settings = request.app.state.settings
+    result = reset_demo_data(db, clock.now(), pii_hash_key=settings.pii_hash_key if settings.demo_seed else None)
     request.app.state.rate_limiter.reset()
     return result
 

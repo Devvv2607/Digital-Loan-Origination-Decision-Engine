@@ -54,6 +54,9 @@ interface Funnel {
 interface Tat {
   states: { state: string; n_completed: number; median: number | null; p90: number | null; currently_in_state: number }[];
   definition: string;
+  simulated_timings: boolean;
+  seeded_applications: number;
+  applications: number;
 }
 
 const STAGE_LABEL: Record<string, string> = {
@@ -173,10 +176,17 @@ function Stat({ label, value, context, definition }: { label: string; value: str
   );
 }
 
-function Panel({ title, intro, children, table }: { title: string; intro: string; children: React.ReactNode; table: React.ReactNode }) {
+function Panel({ title, badge, intro, children, table }: {
+  title: string; badge?: string; intro: string; children: React.ReactNode; table: React.ReactNode;
+}) {
   return (
     <section className="rounded-xl border border-border bg-card px-4 py-4 sm:px-5" aria-label={title}>
-      <h2 className="font-semibold">{title}</h2>
+      <h2 className="flex flex-wrap items-center gap-2 font-semibold">
+        {title}
+        {badge ? (
+          <span className="rounded-full border border-refer/40 bg-refer-soft px-2.5 py-0.5 text-xs font-medium text-refer">{badge}</span>
+        ) : null}
+      </h2>
       <p className="text-sm text-muted-foreground">{intro}</p>
       <div className="mt-4">{children}</div>
       <details className="mt-3 text-sm">
@@ -280,7 +290,11 @@ function TatChart({ tat }: { tat: Tat }) {
   const rows = tat.states.filter((s) => s.n_completed > 0);
   const data = rows.map((s) => ({ name: STATE_LABEL[s.state], median: s.median ?? 0, p90: s.p90 ?? 0 }));
   return (
-    <Panel title="Time in each stage" intro={`${tat.definition} Shown for stages at least one application has finished.`}
+    <Panel title="Time in each stage"
+      badge={tat.simulated_timings ? "Simulated timings" : undefined}
+      intro={`${tat.definition} Shown for stages at least one application has finished.${tat.simulated_timings
+        ? ` ${tat.seeded_applications} of ${tat.applications} applications are seeded demo data whose stage durations are simulated from assumed distributions (for example e-KYC in minutes, offer acceptance in hours), not measured.`
+        : ""}`}
       table={
         <table className="figures mt-2 w-full min-w-[30rem] text-left">
           <thead><tr><th scope="col" className="py-1.5">Stage</th><th scope="col" className="py-1.5 text-right">Median</th><th scope="col" className="py-1.5 text-right">90th percentile</th><th scope="col" className="py-1.5 text-right">Finished</th><th scope="col" className="py-1.5 text-right">Still there</th></tr></thead>

@@ -83,10 +83,12 @@ def test_tat_from_event_log(client, clock):
     client.post(f"/applications/{app_id}/aa/consent", json={"decision": "APPROVE"}, headers=h)
     assess(client, app_id, h)
 
-    rows = {r["state"]: r for r in client.get("/metrics/tat").json()["states"]}
+    tat = client.get("/metrics/tat").json()
+    rows = {r["state"]: r for r in tat["states"]}
     assert (rows["DRAFT"]["median"], rows["DRAFT"]["n_completed"]) == (300.0, 1)
     assert rows["KYC_PENDING"]["median"] == 120.0
     assert rows["UNDER_ASSESSMENT"]["median"] == 0.0   # decided inside one request
+    assert tat["simulated_timings"] is False and tat["seeded_applications"] == 0  # real event times
     assert (rows["APPROVED"]["n_completed"], rows["APPROVED"]["currently_in_state"]) == (0, 1)
 
 

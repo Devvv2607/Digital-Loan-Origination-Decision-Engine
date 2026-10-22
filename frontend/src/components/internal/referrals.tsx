@@ -169,6 +169,7 @@ interface Detail {
   application: {
     id: string;
     state: string;
+    is_seeded: boolean;
     applicant_name: string | null;
     phone_masked: string;
     pan_masked: string | null;
@@ -240,7 +241,7 @@ export function ReferralDetail({ id }: { id: string }) {
       </p>
       <PageTitle title={a.applicant_name ?? "Applicant"} intro={`${a.phone_masked}, PAN ${a.pan_masked}. Currently ${a.state.toLowerCase().replace("_", " ")}.`} />
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Section title="Why it was referred">
             <ul className="space-y-3">
               {d.decision.reason_codes.map((code) => (
@@ -306,7 +307,7 @@ export function ReferralDetail({ id }: { id: string }) {
           </Section>
         </div>
 
-        <div className="space-y-6 lg:sticky lg:top-14 lg:self-start">
+        <div className="min-w-0 space-y-6 lg:sticky lg:top-14 lg:self-start">
           {d.review ? (
             <Section title="Reviewed">
               <p className="text-sm"><span className="font-medium">{d.review.action === "APPROVE" ? "Approved" : "Declined"}</span> by {d.review.reviewer}, {dateTime(d.review.created_at)}</p>
@@ -316,6 +317,11 @@ export function ReferralDetail({ id }: { id: string }) {
             <ReviewForm id={a.id} onDone={load} />
           ) : null}
           <Section title="Timeline">
+            {a.is_seeded ? (
+              <p className="mb-3 text-sm text-muted-foreground">
+                Seeded demo application: the times below are simulated from assumed stage durations, not measured.
+              </p>
+            ) : null}
             <ol className="space-y-2 text-sm">
               {d.timeline.map((e, i) => (
                 <li key={i}>

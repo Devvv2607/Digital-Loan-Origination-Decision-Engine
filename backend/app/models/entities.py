@@ -91,6 +91,8 @@ class Application(Base):
     aa_income_credits: Mapped[list | None] = mapped_column(JSONB)
 
     policy_version: Mapped[int | None] = mapped_column(Integer)
+    # Loaded from the deployed demo seed; its stage timings are simulated (DECISIONS.md D-44).
+    is_seeded: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     created_at: Mapped[datetime] = tz_datetime()
     updated_at: Mapped[datetime] = tz_datetime()

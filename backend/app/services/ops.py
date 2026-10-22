@@ -104,6 +104,7 @@ def detail(db: Session, application_id: uuid.UUID, viewer: Principal | None) -> 
         "application": {
             "id": str(app.id),
             "state": app.state,
+            "is_seeded": app.is_seeded,
             "applicant_name": display_name(app.full_name, viewer),
             "phone_masked": _phone_masked(db, app),
             "pan_masked": mask_pan(app.pan),
