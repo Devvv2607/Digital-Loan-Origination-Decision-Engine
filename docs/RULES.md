@@ -227,7 +227,7 @@ Analysts see the full internal explanation for every code.
 3. Writes both values into `policy/seed_policy.json` with the `source` field: *"Illustrative calibration to the 88.2% approval-rate scenario from the credit-risk cut-off project; does not establish equivalent risk."*
 4. Reports the R2 pass rate and the overall approval rate these thresholds actually produce on the 500 synthetic applications.
 
-**Phase 3 run (actual output).** `approve_threshold = 631`, `refer_floor = 608`. On the 200,000-score population sample (seed 882) that passes 88.4% on R2, refers 5.0% and declines 6.6%. The pass share is 88.4% rather than exactly 88.2% because scores are whole numbers. Step 4 (rates on the 500 synthetic applications) runs after Phase 6 generates `reports/simulation_results.csv`.
+**Phase 3 run (actual output).** `approve_threshold = 631`, `refer_floor = 608`. On the 200,000-score population sample (seed 882) that passes 88.4% on R2, refers 5.0% and declines 6.6%. The pass share is 88.4% rather than exactly 88.2% because scores are whole numbers. Step 4 (Phase 6 run, `--report-only`): on the 500 synthetic applications, 90.7% of the 430 scored applicants pass R2 and the overall engine approval rate is 38.7% (see `reports/simulation_report.md`).
 
 **Expected difference, stated in advance.** The 500 test applications are deliberately skewed toward edge cases (see the persona plan in [DECISIONS.md D-29](DECISIONS.md)), and approval also depends on R1, R3–R6 and fraud checks. The overall approval rate on the 500 will therefore **not** equal 88.2%; the script reports whatever the real figure is.
 

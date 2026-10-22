@@ -2,6 +2,7 @@
 
 > Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.
 > Status: **Phase 0 skeleton.** Endpoints and screens are planned; test names are planned and marked ⏳. Each row is marked ✅ only when the test exists and passes. Completed in Phase 7.
+> Phase 6 progress: 500 synthetic applications run through the API with a 500/500 match (`reports/simulation_report.md`); Playwright happy-path test `frontend/tests/e2e/happy-path.spec.ts` passes; backend coverage 98% (387 tests). Story rows are finalised with exact test names in Phase 7.
 > Phase 5 progress: internal tools built (`frontend/src/components/internal/*`) with backend tests in `tests/test_ops.py`, `tests/test_metrics.py` and `tests/test_policy.py`.
 > Phase 4 progress: applicant screens exist for US-01 to US-09 (`frontend/src/components/apply/steps/*`); landing page with the 5 one-click personas (`frontend/src/app/page.tsx`). Story rows turn ✅ when the Playwright test (Phase 6) covers them.
 > Phase 3 progress: all 15 edge cases have passing `test_ec_XX` tests; every rule, fraud check, precedence and pricing row is covered (`tests/test_rules_and_checks.py`, `test_decision_engine.py`, `test_pricing.py`, `test_assessment.py`, `test_offers.py`, `test_policy.py`).

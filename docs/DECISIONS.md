@@ -210,7 +210,7 @@ Each entry records the context, the decision, the alternatives considered and th
 ## Simulation design
 
 ### D-29 — Planned persona mix for the 500 synthetic applications
-**Planned** (the generator will document the final mix; actual results come only from the run).
+Implemented exactly as planned in `scripts/generate_applications.py` (seed 20261022). Results: `reports/simulation_report.md`.
 
 | Persona | Planned count | % | Expected outcome (from persona definition) |
 |---|---|---|---|
@@ -230,4 +230,16 @@ Each entry records the context, the decision, the alternatives considered and th
 | AA consent declined | 20 | 4% | REFERRED (`DATA_INCOME_UNVERIFIED`) |
 | **Total** | **500** | **100%** | |
 
-Because duplicate-PAN and KYC-timeout cases produce no decision, the report shows them in a separate "no decision" table alongside the 3×3 approve/refer/decline confusion matrix.
+Because duplicate-PAN and KYC-timeout cases produce no decision, the report's confusion matrix has BLOCKED_AT_PAN and KYC_PENDING alongside approve/refer/decline.
+
+### D-41 — How the 500-application simulation is set up
+- **Expectations are fixed before the run.** Each persona's inputs sit clearly inside or outside each threshold of the seeded policy (e.g. FOIR targets 53-57% for the refer band, 66-85% for decline; ages 19.1-20.8 or 56.5-58.5). The only arithmetic shared with the engine is a standard EMI formula, implemented independently in the generator. The run never edits expectations; mismatches are listed and the script exits non-zero.
+- **Seeded policy only.** The runner refuses to start unless the API reports policy version 1 with the 11 seed rows and no applications. The report records the policy version and the git commit.
+- **As-of date.** Ages are designed around an as-of date (default: the day the data is generated). Margins of months keep the age cases valid for a few weeks; regenerate with `--as-of` for a later run.
+- **Velocity:** 4 groups of 5 applications, two sharing a phone (one login session) and two sharing a device ID; the 4th and 5th of each group are expected to be referred.
+- **Duplicates:** 20 strong applicants' offers are deliberately left open (not disbursed) so their PANs are still active when the 20 duplicate-PAN cases arrive last. All other approvals are accepted, e-signed and disbursed through the API; referrals stay in the queue.
+- **Server settings:** `RATE_LIMIT_PROFILE=simulation` (one IP sends 500 journeys; business limits such as the OTP resend cap are unchanged), `MOCK_LATENCY_MS=20`, default retry backoff. Time-in-state figures therefore reflect processing time, not applicant behaviour.
+
+### D-42 — Deployed demo is seeded with the simulation (to do in Phase 7)
+- **Decision (from the project owner):** the deployed database will be seeded with the 500 simulated applications so the metrics dashboard and referral queue have content for visitors. "Reset demo data" must restore that seeded state, not an empty system.
+- **Implementation note for Phase 7:** the simulation's results are created through the API, so the seed is best captured as a database snapshot after a clean run (or by re-running the simulation against the deployed API), and the reset action restores it.
