@@ -15,14 +15,15 @@
 | Ages designed around (as-of date) | 2026-10-22 |
 | Policy version used | 1 (seed policy; 11 rule rows, no edits) |
 | R2 thresholds in force | approve ≥ 631, refer 608–630 |
-| Git commit | 720c9cc64d471f048e74adfee99180201d3ec8f9 |
+| Business clock | anchored, started 2026-10-22T09:00:07 (CLOCK_START) |
+| Git commit | 16b146aa98e1771e30313c9ce77c2c55125640bd |
 | API | http://localhost:8000 |
-| Server settings | RATE_LIMIT_PROFILE=simulation, MOCK_LATENCY_MS=20, PROVIDER_RETRY_BACKOFF_MS=500 (default) |
-| Run started (UTC) | 2026-10-22T02:46:27+00:00 |
-| Run time | 239 s |
+| Server settings | RATE_LIMIT_PROFILE=simulation, MOCK_LATENCY_MS=20, PROVIDER_RETRY_BACKOFF_MS=500 (default), CLOCK_START=2026-10-22T09:00:00+05:30 |
+| Run started (UTC) | 2026-10-22T12:12:09+00:00 |
+| Run time | 211 s |
 | Applications | 500 |
 
-Re-run: reset the database, start the backend with `RATE_LIMIT_PROFILE=simulation`, then run `scripts/generate_applications.py --as-of <date>` and `scripts/run_simulation.py`.
+Re-run: reset the database, start the backend with `RATE_LIMIT_PROFILE=simulation` and `CLOCK_START=2026-10-22T09:00:00+05:30`, then run `scripts/run_simulation.py`. The as-of date is fixed, so the input file and its age cases never expire; `scripts/generate_applications.py` regenerates it byte for byte.
 
 ## Outcome distribution
 
@@ -110,7 +111,7 @@ Application-to-disbursal conversion: 32.4%. Instant-decision rate: 53.6%. Referr
 
 | State | Left the state | Median | P90 | Still in state |
 |---|---|---|---|---|
-| DRAFT | 500 | 0.00 s | 0.10 s | 0 |
+| DRAFT | 500 | 0.00 s | 0.00 s | 0 |
 | KYC_PENDING | 470 | 0.20 s | 0.20 s | 30 |
 | UNDER_ASSESSMENT | 470 | 0.00 s | 0.00 s | 0 |
 | REFERRED | 0 | – | – | 218 |
@@ -124,7 +125,7 @@ Times are from a scripted run with simulated provider latency, so they measure t
 |---|---|
 | Exactly 500 applications run through the API | PASS |
 | Reason codes complete for the outcome (every decline has a DECLINE reason; every referral a REFER reason and no DECLINE; approvals neither) | PASS |
-| Policy version recorded on every decision (and equal to the seed version) | PASS |
+| Policy version recorded on every decision (and equal to the version in force) | PASS |
 | Only legal state transitions in every application's event log | PASS |
 | No request errors | PASS |
 
