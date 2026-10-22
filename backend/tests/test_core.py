@@ -267,6 +267,19 @@ def test_health_reports_database_down(app):
     assert r.json()["details"]["database"] == "unreachable"
 
 
+def test_ping_answers_without_the_database_and_is_not_rate_limited(app):
+    def no_db():
+        raise AssertionError("/ping must not open a database session")
+        yield  # pragma: no cover
+
+    app.dependency_overrides[get_db] = no_db
+    with TestClient(app) as c:
+        codes = {c.get("/ping").status_code for _ in range(200)}
+        head = c.head("/ping")
+        body = c.get("/ping").json()
+    assert codes == {200} and head.status_code == 200 and body == {"status": "ok"}
+
+
 def test_openapi_carries_demo_disclaimer(client):
     spec = client.get("/openapi.json").json()
     assert "Not affiliated with any bank or lender" in spec["info"]["description"]

@@ -1,7 +1,7 @@
 # API Contracts (draft)
 
 > Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.
-> Status: **Phase 7, reconciled.** The generated OpenAPI spec at `/docs` (Swagger) and `/openapi.json` is the source of truth. `scripts/check_api_docs.py` checks that every endpoint in it is documented here and nothing extra is (37 endpoints, path parameters named as in OpenAPI).
+> Status: **Phase 7, reconciled.** The generated OpenAPI spec at `/docs` (Swagger) and `/openapi.json` is the source of truth. `scripts/check_api_docs.py` checks that every endpoint in it is documented here and nothing extra is (39 endpoints, path parameters named as in OpenAPI).
 
 All example PANs, phone numbers and names are synthetic. Example PANs use the prefix `ZZZPZ` and example phones start `90000`.
 
@@ -117,6 +117,15 @@ Checks database connectivity and reports the business clock (`system`, or `ancho
  "clock": {"kind": "system", "now": "2026-10-22T12:29:47.820914+00:00"}}
 ```
 `503` → `DEPENDENCY_UNAVAILABLE` with `{"status": "degraded", "database": "unreachable"}` in `details`.
+
+### `GET /ping` and `HEAD /ping` — public
+Liveness only, for an external uptime monitor that keeps the free Render service awake. It never opens a database connection, so it does not wake Neon's scale-to-zero compute, and it has no rate limit. Use `/health` when you need to know the database is reachable.
+
+`200`
+```json
+{"status": "ok"}
+```
+`HEAD /ping` returns `200` with no body.
 
 ---
 

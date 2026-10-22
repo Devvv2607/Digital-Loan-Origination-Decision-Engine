@@ -15,6 +15,14 @@ router = APIRouter(tags=["Health"])
 logger = logging.getLogger(__name__)
 
 
+@router.get("/ping", operation_id="ping", summary="Liveness only (no database); for uptime monitors")
+@router.head("/ping", operation_id="ping_head", summary="Liveness only (no database); HEAD for uptime monitors")
+def ping() -> dict:
+    # Deliberately no database access and no rate limit: an external monitor can keep the API
+    # awake without keeping the (scale-to-zero) database compute running. Use /health for a full check.
+    return {"status": "ok"}
+
+
 @router.get("/health", summary="Liveness and database connectivity")
 def health(request: Request, db: Session = Depends(get_db)) -> JSONResponse:
     try:

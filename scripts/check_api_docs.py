@@ -25,7 +25,7 @@ doc = (ROOT / "docs" / "API.md").read_text(encoding="utf-8")
 documented = set()
 for line in doc.splitlines():
     if line.startswith("### "):
-        for m, p in re.findall(r"`(GET|POST|PUT|PATCH|DELETE) (/[^`\s]*)`", line):
+        for m, p in re.findall(r"`(GET|HEAD|POST|PUT|PATCH|DELETE) (/[^`\s]*)`", line):
             documented.add((m, p))
 
 missing, extra = sorted(actual - documented), sorted(documented - actual)

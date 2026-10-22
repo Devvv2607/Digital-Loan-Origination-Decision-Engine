@@ -9,11 +9,12 @@ A working prototype of a digital personal-loan journey: phone OTP, PAN, e-KYC an
 
 | | Link |
 |---|---|
-| App | _added after deployment_ |
-| API docs (Swagger) | _added after deployment_ |
-| Health check | _added after deployment_ |
+| App | https://digital-loan-origination-decision-e.vercel.app |
+| API docs (Swagger) | https://lendwise-demo-api.onrender.com/docs |
+| Health check | https://lendwise-demo-api.onrender.com/health |
+| Internal tools (read-only) | https://digital-loan-origination-decision-e.vercel.app/internal/metrics |
 
-Start from the landing page with one of five one-click personas (strong borrower, new to credit, high FOIR, duplicate PAN, income mismatch). The internal tools (`/internal/metrics`, `/internal/referrals`, `/internal/policy`) are public in read-only mode; changes need an ops or admin login. The free API host sleeps when idle, so the first request can take up to a minute; the app shows a "Waking up the demo server" notice and retries instead of an error.
+Start from the landing page with one of five one-click personas (strong borrower, new to credit, high FOIR, duplicate PAN, income mismatch). The internal tools (`/internal/metrics`, `/internal/referrals`, `/internal/policy`) are public in read-only mode; changes need an ops or admin login. The free API host sleeps when idle (`/ping` is a database-free endpoint for an uptime monitor), so the first request can take up to a minute; the app shows a "Waking up the demo server" notice and retries instead of an error.
 
 ## Problem, users, solution
 
@@ -55,7 +56,7 @@ flowchart LR
     GH -->|POST /admin/jobs/expire| API
 ```
 
-Backend: FastAPI, SQLAlchemy 2, Alembic, PostgreSQL, PyJWT. Frontend: Next.js 15, React 19, Tailwind 4, shadcn/ui, Recharts. Tests: pytest (403 tests, 98% coverage) and Playwright.
+Backend: FastAPI, SQLAlchemy 2, Alembic, PostgreSQL, PyJWT. Frontend: Next.js 15, React 19, Tailwind 4, shadcn/ui, Recharts. Tests: pytest (404 tests, 98% coverage) and Playwright.
 
 ## State machine
 
@@ -192,7 +193,7 @@ Set `DEMO_SEED=true` in `backend/.env` before the first start to load the 500 se
 **Tests**
 
 ```bash
-cd backend && .venv/bin/python -m pytest --cov          # 403 tests, 98% coverage
+cd backend && .venv/bin/python -m pytest --cov          # 404 tests, 98% coverage
 cd frontend && npm run build && npm run test:e2e        # happy path + cold-start notice; backend running with CLOCK_START=2026-10-22T09:00:00+05:30
 python scripts/check_api_docs.py                        # docs/API.md matches the OpenAPI spec
 ```
