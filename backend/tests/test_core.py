@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import AnchoredClock
 from app.core.config import ConfigurationError, load_settings
-from app.core.db import get_db, make_engine
+from app.core.db import get_db, make_engine, normalise_database_url
 from app.core.masking import hash_pii, mask_pan, mask_phone, mask_text, mask_value
 from app.main import create_app
 from app.services.idempotency import run_idempotent
@@ -182,6 +182,12 @@ def test_simulation_and_off_profiles_relax_technical_limits(settings, clock, db_
     with TestClient(app) as c:
         codes = {c.post("/auth/login", json={"username": "x", "password": "y"}).status_code for _ in range(8)}
     assert codes == {401}
+
+
+@pytest.mark.parametrize("url", ["postgres://u:p@h/db?sslmode=require", "postgresql://u:p@h/db?sslmode=require",
+                                 "postgresql+psycopg://u:p@h/db?sslmode=require"])
+def test_hosted_database_urls_use_psycopg3(url):
+    assert normalise_database_url(url) == "postgresql+psycopg://u:p@h/db?sslmode=require"
 
 
 # ---------- clock ----------

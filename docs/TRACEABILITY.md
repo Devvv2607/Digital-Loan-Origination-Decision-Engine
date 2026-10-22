@@ -1,38 +1,32 @@
-# Traceability Matrix (skeleton)
+# Traceability Matrix
 
 > Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.
-> Status: **Phase 0 skeleton.** Endpoints and screens are planned; test names are planned and marked ⏳. Each row is marked ✅ only when the test exists and passes. Completed in Phase 7.
-> Phase 6 progress: 500 synthetic applications run through the API with a 500/500 match (`reports/simulation_report.md`); Playwright happy-path test `frontend/tests/e2e/happy-path.spec.ts` passes; backend coverage 98% (387 tests). Story rows are finalised with exact test names in Phase 7.
-> Phase 5 progress: internal tools built (`frontend/src/components/internal/*`) with backend tests in `tests/test_ops.py`, `tests/test_metrics.py` and `tests/test_policy.py`.
-> Phase 4 progress: applicant screens exist for US-01 to US-09 (`frontend/src/components/apply/steps/*`); landing page with the 5 one-click personas (`frontend/src/app/page.tsx`). Story rows turn ✅ when the Playwright test (Phase 6) covers them.
-> Phase 3 progress: all 15 edge cases have passing `test_ec_XX` tests; every rule, fraud check, precedence and pricing row is covered (`tests/test_rules_and_checks.py`, `test_decision_engine.py`, `test_pricing.py`, `test_assessment.py`, `test_offers.py`, `test_policy.py`).
-> Phase 2 progress: EC-03, EC-04, EC-05, EC-06 and EC-11 are covered by passing tests (`tests/test_verification.py`); the bureau retry path for EC-07 is tested at provider level and gets its end-to-end test with assessment in Phase 3.
-> Phase 1 progress: EC-01, EC-02, EC-14 and the state machine are covered by passing tests; US-01/US-02/US-09 endpoints exist (stories stay ⏳ until their screens exist).
+> Status: **Phase 7, complete.** Every row names tests that exist and pass (402 backend tests, 98% coverage; Playwright happy path; 500/500 simulation). Backend test files are under `backend/tests/`; screens under `frontend/src/`. "UI check" says how the screen itself was verified: the Playwright test (`frontend/tests/e2e/happy-path.spec.ts`), or manual desktop and 390 px phone screenshots taken during Phases 4-7.
 
 ## 1. User stories → endpoints → screens → tests
 
-| Story | Endpoints | Screen | Planned tests | Status |
-|---|---|---|---|---|
-| US-01 Phone + OTP | `POST /auth/otp/send`, `POST /auth/otp/verify`, `POST /applications` | Stepper: Phone + OTP | `test_otp_send_returns_demo_code`, `test_otp_verify_issues_applicant_token`, `test_ec_01_*`, `test_ec_02_*`, `test_phone_masked_in_logs` | ⏳ |
-| US-02 Details | `PATCH /applications/{id}`, `POST /applications/{id}/submit` | Stepper: Details | `test_patch_details_validates_fields`, `test_submit_moves_draft_to_kyc_pending`, `test_submit_idempotent`, `test_patch_rejected_after_submit` | ⏳ |
-| US-03 PAN | `POST /applications/{id}/pan/verify`, `/mock/pan/verify` | Stepper: PAN | `test_pan_verify_logs_masked_call`, `test_ec_03_*`, `test_ec_04_*`, `test_ec_11_*`, `test_pan_invalid_status_stays_pending` | ⏳ |
-| US-04 e-KYC | `POST /applications/{id}/kyc/start`, `/kyc/complete`, `/mock/kyc/*` | Stepper: e-KYC | `test_kyc_success_stores_identity`, `test_ec_05_*`, `test_ec_06_*`, `test_kyc_name_similarity_recorded` | ⏳ |
-| US-05 AA consent | `POST /applications/{id}/aa/consent`, `/mock/aa/*` | Stepper: AA consent | `test_aa_approve_stores_verified_income`, `test_ec_09_*`, `test_ec_10_*` | ⏳ |
-| US-06 Instant decision | `POST /applications/{id}/assess`, `GET /applications/{id}/decision`, `/mock/bureau/report` | Decision screen | `test_assess_evaluates_all_rules`, `test_applicant_view_hides_fraud_codes`, `test_ec_07_*`, `test_ec_08_*`, `test_ec_13_*`, `test_assess_idempotent` | ⏳ |
-| US-07 KFS offer | `GET /applications/{id}/offer` | KFS offer screen | `test_offer_contains_kfs_fields`, `test_emi_reference_values`, `test_apr_reference_values`, `test_schedule_invariants`, `test_counter_offer_shown`, `test_accept_requires_kfs_ack` | ⏳ |
-| US-08 Accept / e-sign / disburse | `POST /offer/accept`, `POST /offer/esign`, `POST /disburse` | Accept + e-sign; Disbursed | `test_offer_status_sequence`, `test_esign_requires_accepted`, `test_disburse_requires_esigned`, `test_expired_offer_moves_to_expired`, `test_ec_15_*`, Playwright `happy_path.spec.ts` | ⏳ |
-| US-09 Resume | `POST /auth/otp/verify` (`resumable_applications`), `GET /applications/{id}` | Landing → resume prompt | `test_resume_returns_next_step`, `test_ec_14_*`, `test_other_phone_forbidden` | ⏳ |
-| US-10 Policy editor | `GET /admin/rules`, `PUT /admin/rules/{rule_id}`, `GET /admin/rules/versions` | `/internal/policy` | `test_rule_edit_creates_new_version`, `test_invalid_params_rejected`, `test_new_version_used_without_restart`, `test_readonly_cannot_edit` | ⏳ |
-| US-11 Referral queue | `GET /ops/referrals`, `GET /ops/referrals/{id}`, `POST /ops/referrals/{id}/review` | `/internal/referrals`, `/internal/referrals/{id}` | `test_referrals_paginated_oldest_first`, `test_referral_detail_shows_integrations`, `test_review_approve_generates_offer`, `test_review_idempotent_and_single`, `test_review_requires_ops_role` | ⏳ |
-| US-12 Metrics | `GET /metrics/funnel`, `GET /metrics/tat` | `/internal/metrics` | `test_funnel_counts`, `test_drop_off`, `test_tat_median_p90_from_events`, `test_decision_rates` | ⏳ |
+| Story | Endpoints | Screen | Tests | UI check | Status |
+|---|---|---|---|---|---|
+| US-01 Phone + OTP | `POST /auth/otp/send`, `POST /auth/otp/verify`, `POST /applications` | `components/apply/steps/phone-step.tsx` | `test_otp.py`: `test_send_returns_simulated_code_valid_for_five_minutes`, `test_verify_issues_applicant_token_and_reuses_applicant`, `test_code_cannot_be_reused`, `test_ec_01_otp_locked_after_three_wrong_attempts`, `test_ec_02_expired_otp_rejected_and_resend_capped`, `test_phone_never_logged_in_clear`; `test_applications.py`: `test_create_starts_in_draft_with_creation_event` | Playwright | ✅ |
+| US-02 Details | `PATCH /applications/{application_id}`, `POST /applications/{application_id}/submit` | `steps/details-step.tsx` | `test_applications.py`: `test_details_can_be_saved_in_steps`, `test_invalid_details_rejected_field_by_field`, `test_future_date_of_birth_rejected`, `test_submit_requires_all_details`, `test_submit_moves_draft_to_kyc_pending`, `test_submit_idempotency_key_replays_original_response`, `test_details_locked_after_submit` | Playwright | ✅ |
+| US-03 PAN | `POST /applications/{application_id}/pan/verify`, `POST /mock/pan/verify` | `steps/pan-step.tsx` | `test_verification.py`: `test_pan_verified_when_names_match`, `test_ec_03_invalid_pan_format_makes_no_provider_call`, `test_ec_04_pan_name_mismatch_requires_confirmation_and_feeds_f3`, `test_ec_11_duplicate_pan_blocked_with_409`, `test_pan_reported_invalid_by_provider`; `test_mock_api.py`: `test_mock_pan_masks_pan_and_logs` | Playwright | ✅ |
+| US-04 e-KYC | `POST /applications/{application_id}/kyc/start`, `/kyc/complete`, `/mock/kyc/*` | `steps/ekyc-step.tsx` | `test_verification.py`: `test_kyc_success_stores_identity_and_similarity`, `test_ec_05_kyc_timeout_retries_then_stays_pending`, `test_ec_06_kyc_incomplete_asks_retry`, `test_kyc_identity_mismatch_recorded_for_f3`, `test_kyc_wrong_otp` | Playwright | ✅ |
+| US-05 AA consent | `POST /applications/{application_id}/aa/consent`, `/mock/aa/*` | `steps/consent-step.tsx` | `test_verification.py`: `test_aa_approve_stores_verified_income`, `test_aa_decline_records_choice_and_moves_on`; `test_assessment.py`: `test_ec_09_aa_declined_caps_at_referred`, `test_ec_10_income_mismatch_uses_verified_and_flags_f4` | Playwright | ✅ |
+| US-06 Instant decision | `POST /applications/{application_id}/assess`, `GET /applications/{application_id}/decision`, `POST /mock/bureau/report` | `steps/assess-step.tsx`, `steps/decision-step.tsx` | `test_assessment.py`: `test_strong_applicant_approved_instantly_with_offer`, `test_assess_is_idempotent_with_and_without_key`, `test_ec_07_bureau_timeout_refers_with_sys_code`, `test_ec_08_ntc_refers_not_declines`, `test_ec_13_age_out_of_range_declines`, `test_decision_access_control`; `test_rules_and_checks.py`: `test_fraud_wording_never_reveals_the_check`; `test_decision_engine.py`: `test_reason_codes_complete_for_outcome` | Playwright (approval); manual (refer, decline) | ✅ |
+| US-07 KFS offer | `GET /applications/{application_id}/offer` | `steps/offer-stage.tsx` | `test_offers.py`: `test_kfs_offer_shows_every_required_field`, `test_counter_offer_is_shown_against_requested_amount`, `test_accept_requires_kfs_acknowledgement`; `test_pricing.py`: `test_emi_matches_reference`, `test_apr_matches_independent_reference`, `test_kfs_consistency_invariants` | Playwright (KFS figures, tick required) | ✅ |
+| US-08 Accept / e-sign / disburse | `POST /offer/accept`, `POST /offer/esign`, `POST /disburse` | `steps/offer-stage.tsx` | `test_offers.py`: `test_accept_esign_disburse_are_separate_ordered_steps`, `test_offer_steps_are_idempotent`, `test_expired_offer_cannot_be_accepted`, `test_ec_15_acceptance_honours_decision_time_policy`; `test_expiry.py`: `test_unsigned_offer_expires_after_7_days_lazily`; `test_state_machine.py`: `test_offer_status_transitions` | Playwright (to disbursal) | ✅ |
+| US-09 Resume | `POST /auth/otp/verify` (`resumable_applications`), `GET /applications/{application_id}` | `components/apply/flow.tsx` (resume prompt) | `test_applications.py`: `test_resumable_applications_returned_at_login`, `test_other_applicant_cannot_read_application`; `test_expiry.py`: `test_ec_14_abandoned_application_expires_after_30_days`, `test_ec_14_expired_applications_are_not_offered_for_resume` | manual | ✅ |
+| US-10 Policy editor | `GET /admin/rules`, `PUT /admin/rules/{rule_id}`, `GET /admin/rules/versions` | `/internal/policy` (`components/internal/policy-editor.tsx`) | `test_policy.py`: `test_edit_creates_new_version_and_old_version_is_reconstructable`, `test_invalid_parameters_rejected_without_new_version`, `test_admin_edit_and_version_history`, `test_edit_requires_admin`, `test_rules_are_publicly_readable_in_demo_mode`; `test_assessment.py`: `test_new_policy_version_used_without_restart` | manual (including an admin edit of R4) | ✅ |
+| US-11 Referral queue | `GET /ops/referrals`, `GET /ops/referrals/{application_id}`, `POST /ops/referrals/{application_id}/review` | `/internal/referrals`, `/internal/referrals/{id}` (`components/internal/referrals.tsx`) | `test_ops.py`: `test_queue_lists_referrals_oldest_first_with_flags`, `test_detail_has_reasons_inputs_integrations_and_timeline`, `test_approve_generates_offer_under_decision_policy_version`, `test_review_is_idempotent_and_single`, `test_notes_are_mandatory`, `test_review_requires_ops_or_admin`, `test_public_read_only_view_shows_initials_only` | manual | ✅ |
+| US-12 Metrics | `GET /metrics/funnel`, `GET /metrics/tat` | `/internal/metrics` (`components/internal/metrics-dashboard.tsx`) | `test_metrics.py`: `test_funnel_counts_and_drop_off`, `test_decision_rates_fraud_rate_and_reasons`, `test_date_filter`, `test_tat_from_event_log`, `test_percentile_definition`; `test_demo_seed.py`: `test_tat_is_flagged_as_simulated_timings` | manual | ✅ |
 
 ## 2. Edge cases → handling → tests
 
-| Edge case | Handling location (planned) | Test | Status |
+| Edge case | Handling location | Test | Status |
 |---|---|---|---|
 | EC-01 | `services/otp.py` | `test_ec_01_otp_locked_after_three_wrong_attempts` | ✅ |
 | EC-02 | `services/otp.py` | `test_ec_02_expired_otp_rejected_and_resend_capped` | ✅ |
-| EC-03 | `services/verification.py` (`verify_pan`), frontend PAN field (Phase 4) | `test_ec_03_invalid_pan_format_makes_no_provider_call` | ✅ |
+| EC-03 | `services/verification.py` (`verify_pan`), frontend PAN field (`steps/pan-step.tsx`) | `test_ec_03_invalid_pan_format_makes_no_provider_call` | ✅ |
 | EC-04 | `services/verification.py` (`verify_pan`) | `test_ec_04_pan_name_mismatch_requires_confirmation_and_feeds_f3` | ✅ |
 | EC-05 | `integrations/calls.py` (`call_with_retries`), `services/verification.py` (`complete_kyc`) | `test_ec_05_kyc_timeout_retries_then_stays_pending` | ✅ |
 | EC-06 | `services/verification.py` (`complete_kyc`) | `test_ec_06_kyc_incomplete_asks_retry` | ✅ |
@@ -48,7 +42,7 @@
 
 ## 3. Rules and fraud checks → tests
 
-| ID | Code (planned) | Tests (planned) | Status |
+| ID | Code | Tests (`test_rules_and_checks.py`, `test_decision_engine.py`, `test_pricing.py`, `test_state_machine.py`) | Status |
 |---|---|---|---|
 | R1 Age | `engine/rules.py` | boundary: day before/on 21st birthday; maturity on/after 60th birthday | ✅ |
 | R2 Credit score | `engine/rules.py` | at/below approve threshold; at/below refer floor; NTC | ✅ |
@@ -64,6 +58,26 @@
 | Pricing | `engine/pricing.py, services/offers.py` | EMI/APR reference values; invariants; zero/high fee; 12/60 months | ✅ |
 | State machine | `state_machine/machine.py` | all 11 allowed + 53 rejected pairs (`tests/test_state_machine.py`) | ✅ |
 
-## 4. Acceptance checklist mapping
+## 4. Acceptance checklist mapping (spec §13)
 
-To be completed in Phase 7: each item in the final acceptance checklist (prompt §13) linked to its evidence (doc section, test, report or URL).
+| Checklist item | Evidence | Status |
+|---|---|---|
+| PRD has exactly 12 user stories, each with acceptance criteria | `docs/PRD.md` (US-01 to US-12); §1 above | ✅ |
+| Exactly 15 edge cases, each with handling code and a passing `test_ec_XX` | `docs/PRD.md`; §2 above (EC-01 to EC-15, all passing) | ✅ |
+| State machine has exactly 8 states; illegal transitions rejected and tested | `docs/STATE_MACHINE.md`; `test_exactly_eight_states_and_three_terminal`, `test_illegal_transition_rejected_without_side_effects`, `test_allowed_transition_table_matches_spec`; simulation assertion "only legal transitions" | ✅ |
+| 4 mock integrations, deterministic, logged, visible in Swagger | `backend/app/integrations/mock/`; `test_same_pan_gives_same_profile`, `test_logged_call_records_masked_request_and_response`, `test_all_four_mocks_are_in_swagger_under_a_mock_tag` | ✅ |
+| `docs/API.md` documents every endpoint with examples | `docs/API.md`; `scripts/check_api_docs.py` (37 of 37, run in CI) | ✅ |
+| Exactly 6 eligibility rules, editable from the admin UI, versioned | `docs/RULES.md`; `/internal/policy`; `test_seed_policy_has_exactly_6_rules_4_fraud_checks_and_pricing`, `test_edit_creates_new_version_and_old_version_is_reconstructable` | ✅ |
+| R2 thresholds generated by `seed_policy_from_cutoff.py` from the 88.2% scenario, documented as illustrative | `docs/RULES.md` §6; `test_seed_script_calibrates_to_reference_approval_rate`, `test_committed_seed_file_is_reproducible_from_the_script` | ✅ |
+| Exactly 4 fraud checks, implemented and tested | `backend/app/engine/fraud/`; `test_f2_velocity`, `test_f3_identity`, `test_f4_income`, `test_ec_11_duplicate_pan_blocked_with_409` | ✅ |
+| Documented evaluation sequence; `SYS_`/`DATA_`/`FRAUD_`/`ELIG_`/`INFO_` codes distinct | `docs/RULES.md`; `test_reason_code_families_are_distinct`, `test_refer_reasons_are_ordered_by_priority` | ✅ |
+| Counter-offers re-run FOIR before being offered | `test_counter_offer_reruns_foir_on_capped_amount_and_approves`, `test_counter_offer_not_made_when_capped_amount_still_unaffordable` | ✅ |
+| Every decision returns outcome, reason codes and policy version | `test_strong_applicant_is_approved_with_every_check_evaluated`; simulation assertion "policy version recorded on every decision" | ✅ |
+| Offer status GENERATED → ACCEPTED → ESIGNED; DISBURSED only after e-sign | `test_offer_status_transitions`, `test_accept_esign_disburse_are_separate_ordered_steps` | ✅ |
+| KFS screen: APR, EMI, total cost, fees, assumptions, cooling-off; tick required; EMI/APR invariants tested | `steps/offer-stage.tsx`; Playwright test (figures, Accept disabled until ticked); `test_kfs_offer_shows_every_required_field`, `test_kfs_consistency_invariants` | ✅ |
+| Admin/ops writes protected; public demo read-only; rate limits on; PAN/phone masked in logs | `test_admin_route_rejects_applicant_and_ops`, `test_edit_requires_admin`, `test_review_requires_ops_or_admin`, `test_otp_send_rate_limited_per_ip`, `test_logging_masks_pan_even_if_code_forgets`, `test_phone_never_logged_in_clear`; per-visitor limits behind the host's proxy (D-45) | ✅ |
+| Idempotency on submit, assess, accept and review; `/health` works | `test_submit_idempotency_key_replays_original_response`, `test_assess_is_idempotent_with_and_without_key`, `test_offer_steps_are_idempotent`, `test_review_is_idempotent_and_single`, `test_health_ok` | ✅ |
+| Exactly 500 synthetic applications through the API; report from the real run | `reports/simulation_report.md` (500/500 on the fixed as-of clock); D-43 mutation check shows the run can fail | ✅ |
+| Frontend, backend and database deployed, with working public links | README "Live demo" | ⏳ needs the hosting accounts (D-45) |
+| Demo banner on every page; no real lender branding | sticky banner in the root layout; the Playwright test checks it; repository history scanned for real lender names | ✅ |
+| README complete, with real numbers only | `README.md` (simulation figures copied from the report) | ✅ (live links added after deploy) |

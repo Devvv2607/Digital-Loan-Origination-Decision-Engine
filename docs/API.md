@@ -1,7 +1,7 @@
 # API Contracts (draft)
 
 > Demo prototype. Simulated integrations and synthetic data. Not affiliated with any bank or lender.
-> Status: **Phase 5** — every endpoint below is implemented. Final reconciliation with the generated OpenAPI spec happens in Phase 7. The generated OpenAPI spec at `/docs` (Swagger) and `/openapi.json` becomes the source of truth once the backend exists; this file will be reconciled with it in Phase 7.
+> Status: **Phase 7, reconciled.** The generated OpenAPI spec at `/docs` (Swagger) and `/openapi.json` is the source of truth. `scripts/check_api_docs.py` checks that every endpoint in it is documented here and nothing extra is (37 endpoints, path parameters named as in OpenAPI).
 
 All example PANs, phone numbers and names are synthetic. Example PANs use the prefix `ZZZPZ` and example phones start `90000`.
 
@@ -10,7 +10,7 @@ All example PANs, phone numbers and names are synthetic. Example PANs use the pr
 ## 0. Conventions
 
 ### 0.1 Base URL and format
-- Local: `http://localhost:8000` (Postgres via Docker Compose on host port 55432) · Production: Render URL (Phase 7).
+- Local: `http://localhost:8000` (Postgres via Docker Compose on host port 55432) · Production: the Render URL in the README.
 - JSON request and response bodies; amounts in whole rupees (integers); rates as percentages with two decimals (`13.49`); timestamps ISO-8601 UTC.
 
 ### 0.2 Authentication and roles
@@ -64,7 +64,7 @@ Every error uses one shape:
 Provider timeouts are **not** errors to the applicant: they return `200`/`202` with a status the UI explains (see KYC and assess below).
 
 ### 0.4 Idempotency
-`POST /applications/{id}/submit`, `/assess`, `/offer/accept`, `/offer/esign`, `/disburse` and `POST /ops/referrals/{id}/review` accept an `Idempotency-Key` header (any string up to 128 characters, e.g. a UUID).
+`POST /applications/{application_id}/submit`, `/assess`, `/offer/accept`, `/offer/esign`, `/disburse` and `POST /ops/referrals/{application_id}/review` accept an `Idempotency-Key` header (any string up to 128 characters, e.g. a UUID).
 - Same key + same body → the original status code and body are returned; nothing is written again. Response header `Idempotent-Replay: true`.
 - Same key + different body → `422 IDEMPOTENCY_KEY_REUSED`.
 - Keys are stored per (endpoint, application) for 24 hours.
@@ -96,24 +96,25 @@ PAN → `ZZZPZ****Q`; phone → `******0001`. Applied in API responses to non-ow
 | Endpoint | Why |
 |---|---|
 | `POST /auth/login` | Ops/admin JWT login (required by §8b roles) |
-| `POST /applications/{id}/offer/esign` | US-08 needs e-sign as a separate step |
-| `POST /applications/{id}/disburse` | US-08 needs disbursal as a separate step |
-| `GET /ops/referrals/{id}` | Referral detail screen (reason codes + integration results) |
+| `POST /applications/{application_id}/offer/esign` | US-08 needs e-sign as a separate step |
+| `POST /applications/{application_id}/disburse` | US-08 needs disbursal as a separate step |
+| `GET /ops/referrals/{application_id}` | Referral detail screen (reason codes + integration results) |
 | `POST /admin/demo/reset` | "Reset demo data" admin action (§8b) |
 | `POST /admin/jobs/expire` | Bulk expiry for EC-14 / offer expiry; usable by a scheduler and tests |
 | `PUT /mock/profiles/{pan}` | Registers deterministic mock fixtures for demo personas and the 500-application simulation |
-| `GET /demo/personas`, `POST /demo/personas/{id}` | One-click demo personas on the landing page (only when `DEMO_MODE=true`; see D-36) |
+| `GET /demo/personas`, `POST /demo/personas/{application_id}` | One-click demo personas on the landing page (only when `DEMO_MODE=true`; see D-36) |
 
 ---
 
 ## 1. Health
 
 ### `GET /health` — public
-Checks database connectivity.
+Checks database connectivity and reports the business clock (`system`, or `anchored` when `CLOCK_START` is set for simulation and e2e runs; D-41).
 
 `200`
 ```json
-{"status": "ok", "database": "ok", "version": "0.1.0", "policy_version": 1}
+{"status": "ok", "database": "ok", "version": "0.1.0", "policy_version": 1,
+ "clock": {"kind": "system", "now": "2026-10-22T12:29:47.820914+00:00"}}
 ```
 `503` → `DEPENDENCY_UNAVAILABLE` with `{"status": "degraded", "database": "unreachable"}` in `details`.
 
@@ -179,7 +180,7 @@ Header `X-Device-Id: <client-generated device ID>` (used by F2).
 {"id": "a3c9d1f2-7e44-4f6b-8c2d-1b2a3c4d5e6f", "state": "DRAFT", "created_at": "2026-10-20T09:00:30Z"}
 ```
 
-### `GET /applications/{id}` — applicant (owner)
+### `GET /applications/{application_id}` — applicant (owner)
 Includes saved details, current step and the event timeline (used for resume and by the simulation's transition checks).
 
 `200`
@@ -207,21 +208,21 @@ Includes saved details, current step and the event timeline (used for resume and
 ```
 Errors: `403 FORBIDDEN`, `404 NOT_FOUND`. An abandoned application is expired lazily on read and returned with `state: "EXPIRED"`.
 
-### `PATCH /applications/{id}` — applicant (owner), `DRAFT` only
+### `PATCH /applications/{application_id}` — applicant (owner), `DRAFT` only
 Partial update of `details`.
 ```json
 {"loan_amount": 600000, "tenure_months": 48}
 ```
 `200` → same shape as `GET`. Errors: `422 VALIDATION_ERROR`, `409 INVALID_STATE_TRANSITION` (not `DRAFT`).
 
-### `POST /applications/{id}/submit` — applicant, idempotent
+### `POST /applications/{application_id}/submit` — applicant, idempotent
 `200`
 ```json
 {"id": "a3c9...", "state": "KYC_PENDING", "next_step": "PAN"}
 ```
 Errors: `422 VALIDATION_ERROR` (`details.missing_fields`), `409 INVALID_STATE_TRANSITION`.
 
-### `POST /applications/{id}/pan/verify` — applicant, `KYC_PENDING`
+### `POST /applications/{application_id}/pan/verify` — applicant, `KYC_PENDING`
 ```json
 {"pan": "ZZZPZ1234Q"}
 ```
@@ -249,13 +250,13 @@ Errors:
 - `422 PAN_FORMAT_INVALID` (EC-03) — no provider call, no `integration_calls` row.
 - `409 APPLICATION_ALREADY_IN_PROGRESS` (EC-11) — neutral message: "An application with these details is already in progress. Please continue that application." Internally logs a `FRAUD_CHECK` event with `FRAUD_DUPLICATE_PAN`.
 
-### `POST /applications/{id}/kyc/start` — applicant, `KYC_PENDING`, PAN verified
+### `POST /applications/{application_id}/kyc/start` — applicant, `KYC_PENDING`, PAN verified
 `200`
 ```json
 {"kyc_session_id": "k-7d1e...", "status": "OTP_SENT", "demo_kyc_otp": "601245", "demo_notice": "Simulated e-KYC — no real identity data is used."}
 ```
 
-### `POST /applications/{id}/kyc/complete` — applicant
+### `POST /applications/{application_id}/kyc/complete` — applicant
 ```json
 {"kyc_session_id": "k-7d1e...", "otp": "601245"}
 ```
@@ -273,7 +274,7 @@ Errors:
 ```
 Errors: `400 KYC_OTP_INVALID`, `409 INVALID_STATE_TRANSITION`.
 
-### `POST /applications/{id}/aa/consent` — applicant, `KYC_PENDING`, KYC complete
+### `POST /applications/{application_id}/aa/consent` — applicant, `KYC_PENDING`, KYC complete
 ```json
 {"decision": "APPROVE"}
 ```
@@ -292,7 +293,7 @@ Errors: `400 KYC_OTP_INVALID`, `409 INVALID_STATE_TRANSITION`.
 {"consent_id": "aa-c-91f3...", "status": "DECLINED", "notice": "We'll use the income you declared. Your application will need a manual review.", "next_step": "ASSESS"}
 ```
 
-### `POST /applications/{id}/assess` — applicant, idempotent
+### `POST /applications/{application_id}/assess` — applicant, idempotent
 Moves `KYC_PENDING → UNDER_ASSESSMENT → APPROVED | REFERRED | DECLINED` within one request.
 
 `200` — approved with counter-offer
@@ -322,7 +323,7 @@ Moves `KYC_PENDING → UNDER_ASSESSMENT → APPROVED | REFERRED | DECLINED` with
 ```
 Applicant responses never include `FRAUD_*` codes. Errors: `409 INVALID_STATE_TRANSITION` (KYC or AA consent not done), `409 APPLICATION_EXPIRED`.
 
-### `GET /applications/{id}/decision` — applicant (owner); ops/admin get the full view
+### `GET /applications/{application_id}/decision` — applicant (owner); ops/admin get the full view
 Applicant view = the `assess` response. Ops/admin view adds internal detail:
 ```json
 {
@@ -356,7 +357,7 @@ Applicant view = the `assess` response. Ops/admin view adds internal detail:
 ```
 (Example values are illustrative only.)
 
-### `GET /applications/{id}/offer` — applicant (owner)
+### `GET /applications/{application_id}/offer` — applicant (owner)
 ```json
 {
   "offer_id": "o-5e7f...",
@@ -390,7 +391,7 @@ Applicant view = the `assess` response. Ops/admin view adds internal detail:
 ```
 (Example numbers were computed with a throwaway script using the formulas in [RULES.md §7](RULES.md) — ₹5,00,000, 36 months, 12.99%, 2% fee; schedule truncated to month 1. They will be re-checked against the engine's tests in Phase 3.) Errors: `404 NOT_FOUND` (no offer), `409 OFFER_EXPIRED`.
 
-### `POST /applications/{id}/offer/accept` — applicant, idempotent
+### `POST /applications/{application_id}/offer/accept` — applicant, idempotent
 ```json
 {"kfs_acknowledged": true}
 ```
@@ -401,7 +402,7 @@ Applicant view = the `assess` response. Ops/admin view adds internal detail:
 ```
 Errors: `400 KFS_NOT_ACKNOWLEDGED`, `409 OFFER_EXPIRED` (application moves to `EXPIRED`), `409 INVALID_STATE_TRANSITION`.
 
-### `POST /applications/{id}/offer/esign` — applicant, idempotent *(added)*
+### `POST /applications/{application_id}/offer/esign` — applicant, idempotent *(added)*
 ```json
 {"signature_name": "Asha Verma"}
 ```
@@ -412,7 +413,7 @@ Errors: `400 KFS_NOT_ACKNOWLEDGED`, `409 OFFER_EXPIRED` (application moves to `E
 ```
 Errors: `409 INVALID_STATE_TRANSITION` (offer not `ACCEPTED`), `409 OFFER_EXPIRED`.
 
-### `POST /applications/{id}/disburse` — applicant-initiated, idempotent *(added)*
+### `POST /applications/{application_id}/disburse` — applicant-initiated, idempotent *(added)*
 `200`
 ```json
 {"offer_id": "o-5e7f...", "status": "ESIGNED", "policy_version": 3, "application_state": "DISBURSED",
@@ -467,8 +468,8 @@ Query: `rule_id` (optional), `page`, `page_size`.
 The UI computes diffs between any two versions from these rows.
 
 ### `POST /admin/demo/reset` — admin *(added)*
-Deletes applications, events, decisions, offers, reviews, OTP attempts and integration calls; restores policy to the seed version; re-registers demo persona fixtures.
-`200` → `{"status": "reset", "policy_version": 1, "deleted": {"applications": 11, "...": 0}}` (also clears the in-memory rate limiter)
+Deletes applications, events, decisions, offers, reviews, OTP attempts, integration calls, idempotency keys, mock fixtures and policy versions, then restores policy version 1. On the deployed demo (`DEMO_SEED=true`) it then loads the 500 seeded applications again, moved to today (D-42, D-44). Persona fixtures are created on demand when a persona starts, so nothing else needs restoring. Also clears the in-memory rate limiter.
+`200` → `{"status": "reset", "policy_version": 1, "deleted": {"applications": 511, "...": 0}, "seeded_applications": 500, "shifted_days": 0, "seed_as_of": "2026-10-22"}` (without `DEMO_SEED`: `"seeded_applications": 0` and no shift fields)
 
 ### `POST /admin/jobs/expire` — admin *(added)*
 Applies the 30-day abandonment and 7-day offer expiry rules.
@@ -493,11 +494,11 @@ Query: `page`, `page_size`, `reason_code` (optional filter). Ordered oldest firs
 }
 ```
 
-### `GET /ops/referrals/{id}` — ops, admin, or public in read-only demo *(added)*
+### `GET /ops/referrals/{application_id}` — ops, admin, or public in read-only demo *(added)*
 Full decision (ops view above) plus application details, timeline and masked integration results:
 ```json
 {
-  "application": {"id": "a3c9...", "state": "REFERRED", "details": {}},
+  "application": {"id": "a3c9...", "state": "REFERRED", "is_seeded": true, "details": {}},
   "decision": {},
   "integration_results": [
     {"provider": "bureau", "status": "SUCCESS", "latency_ms": 412, "attempt": 1,
@@ -507,7 +508,7 @@ Full decision (ops view above) plus application details, timeline and masked int
 }
 ```
 
-### `POST /ops/referrals/{id}/review` — ops, admin; idempotent
+### `POST /ops/referrals/{application_id}/review` — ops, admin; idempotent
 ```json
 {"action": "APPROVE", "notes": "Salary credits stable for 6 months; borderline score acceptable."}
 ```
@@ -553,9 +554,14 @@ Query: `from`, `to` (ISO dates, optional).
     {"state": "UNDER_ASSESSMENT", "n_completed": 0, "median": null, "p90": null, "currently_in_state": 0},
     {"state": "REFERRED", "n_completed": 0, "median": null, "p90": null, "currently_in_state": 0},
     {"state": "APPROVED", "n_completed": 0, "median": null, "p90": null, "currently_in_state": 0}
-  ]
+  ],
+  "definition": "Time between entering a state and leaving it, from the event log. ...",
+  "simulated_timings": false,
+  "seeded_applications": 0,
+  "applications": 0
 }
 ```
+Durations in seconds, rounded to milliseconds. `simulated_timings` is true when the period includes seeded demo applications, whose stage durations are simulated (D-44); the dashboard then labels the chart "Simulated timings".
 
 ---
 

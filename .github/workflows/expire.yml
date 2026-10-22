@@ -1,0 +1,29 @@
+# Production trigger for the expiry job (DECISIONS.md D-05, D-45): offers not e-signed within
+# their validity, and applications abandoned for 30 days, move to EXPIRED. Expiry also runs
+# lazily whenever an application is opened, so a missed run only delays the change.
+# Needs repository secrets LENDWISE_API_URL, LENDWISE_ADMIN_USERNAME, LENDWISE_ADMIN_PASSWORD.
+name: Expire offers and abandoned applications
+
+on:
+  schedule:
+    - cron: "15 */6 * * *"   # every 6 hours
+  workflow_dispatch:
+
+jobs:
+  expire:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call POST /admin/jobs/expire
+        env:
+          API: ${{ secrets.LENDWISE_API_URL }}
+          ADMIN_USERNAME: ${{ secrets.LENDWISE_ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.LENDWISE_ADMIN_PASSWORD }}
+        run: |
+          if [ -z "$API" ] || [ -z "$ADMIN_USERNAME" ] || [ -z "$ADMIN_PASSWORD" ]; then
+            echo "Secrets not configured; skipping."; exit 0
+          fi
+          # The free web service may be asleep; the first request wakes it.
+          curl -sf --retry 5 --retry-delay 15 --retry-all-errors --max-time 90 "$API/health" > /dev/null
+          TOKEN=$(curl -sf --max-time 60 -X POST "$API/auth/login" -H "Content-Type: application/json" \
+            -d "$(jq -n --arg u "$ADMIN_USERNAME" --arg p "$ADMIN_PASSWORD" '{username:$u,password:$p}')" | jq -r .access_token)
+          curl -sf --max-time 60 -X POST "$API/admin/jobs/expire" -H "Authorization: Bearer $TOKEN"

@@ -1,0 +1,50 @@
+# Render Blueprint for the Lendwise (Demo) API. Database: Neon Postgres (DATABASE_URL).
+# Values marked sync: false are entered in the Render dashboard when the Blueprint is created;
+# nothing secret is stored in this file.
+services:
+  - type: web
+    name: lendwise-demo-api
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # Migrations run on every start; on an empty database the app then loads policy v1 and the
+    # 500 seeded applications (DEMO_SEED). --proxy-headers makes per-IP rate limits see the
+    # visitor's address instead of Render's proxy.
+    startCommand: alembic upgrade head && uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PII_HASH_KEY
+        generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: OPS_USERNAME
+        value: ops
+      - key: OPS_PASSWORD
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: DEMO_MODE
+        value: "true"
+      - key: DEMO_READ_ONLY
+        value: "true"
+      - key: DEMO_SEED
+        value: "true"
+      - key: MOCK_LATENCY_MS
+        value: "300"
+      - key: RATE_LIMIT_PROFILE
+        value: default
+      - key: LOG_LEVEL
+        value: INFO

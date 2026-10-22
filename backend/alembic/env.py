@@ -7,6 +7,7 @@ from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, pool
 
+from app.core.db import normalise_database_url
 from app.models import Base
 
 config = context.config
@@ -19,12 +20,12 @@ target_metadata = Base.metadata
 def database_url() -> str:
     url = config.get_main_option("sqlalchemy.url")
     if url:
-        return url
+        return normalise_database_url(url)
     load_dotenv()
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL is not set")
-    return url
+    return normalise_database_url(url)
 
 
 def run_migrations_offline() -> None:
