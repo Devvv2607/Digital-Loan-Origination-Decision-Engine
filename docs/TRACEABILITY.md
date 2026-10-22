@@ -78,6 +78,6 @@
 | Admin/ops writes protected; public demo read-only; rate limits on; PAN/phone masked in logs | `test_admin_route_rejects_applicant_and_ops`, `test_edit_requires_admin`, `test_review_requires_ops_or_admin`, `test_otp_send_rate_limited_per_ip`, `test_logging_masks_pan_even_if_code_forgets`, `test_phone_never_logged_in_clear`; per-visitor limits behind the host's proxy (D-45) | ✅ |
 | Idempotency on submit, assess, accept and review; `/health` works | `test_submit_idempotency_key_replays_original_response`, `test_assess_is_idempotent_with_and_without_key`, `test_offer_steps_are_idempotent`, `test_review_is_idempotent_and_single`, `test_health_ok` | ✅ |
 | Exactly 500 synthetic applications through the API; report from the real run | `reports/simulation_report.md` (500/500 on the fixed as-of clock); D-43 mutation check shows the run can fail | ✅ |
-| Frontend, backend and database deployed, with working public links | README "Live demo" | ⏳ needs the hosting accounts (D-45) |
+| Frontend, backend and database deployed, with working public links | README "Live demo": Vercel frontend, Render API (`/health`, `/ping`, `/docs`), Neon database; checked live on 2026-10-22 (happy path to disbursal, CORS, read-only views, rate limits) | ✅ |
 | Demo banner on every page; no real lender branding | sticky banner in the root layout; the Playwright test checks it; repository history scanned for real lender names | ✅ |
-| README complete, with real numbers only | `README.md` (simulation figures copied from the report) | ✅ (live links added after deploy) |
+| README complete, with real numbers only | `README.md` (simulation figures copied from the report; live links) | ✅ |
