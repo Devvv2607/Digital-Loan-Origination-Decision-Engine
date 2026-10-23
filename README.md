@@ -14,7 +14,7 @@ A working prototype of a digital personal-loan journey: phone OTP, PAN, e-KYC an
 | Health check | https://lendwise-demo-api.onrender.com/health |
 | Internal tools (read-only) | https://digital-loan-origination-decision-e.vercel.app/internal/metrics |
 
-Start from the landing page with one of five one-click personas (strong borrower, new to credit, high FOIR, duplicate PAN, income mismatch). The internal tools (`/internal/metrics`, `/internal/referrals`, `/internal/policy`) are public in read-only mode; changes need an ops or admin login. The free API host sleeps when idle (`/ping` is a database-free endpoint for an uptime monitor), so the first request can take up to a minute; the app shows a "Waking up the demo server" notice and retries instead of an error.
+Start from the landing page with one of five sample applicants (fictional people with synthetic data: strong borrower, new to credit, high FOIR, duplicate PAN, income mismatch). After signing in with a phone OTP, returning applicants see "My applications", and a new application with the same PAN skips e-KYC ("KYC already verified"). The internal tools (`/internal/metrics`, `/internal/referrals`, `/internal/policy`) are public in read-only mode; changes need an ops or admin login. The free API host sleeps when idle (`/ping` is a database-free endpoint for an uptime monitor), so the first request can take up to a minute; the app shows a "Waking up the demo server" notice and retries instead of an error.
 
 ## Problem, users, solution
 
@@ -56,7 +56,7 @@ flowchart LR
     GH -->|POST /admin/jobs/expire| API
 ```
 
-Backend: FastAPI, SQLAlchemy 2, Alembic, PostgreSQL, PyJWT. Frontend: Next.js 15, React 19, Tailwind 4, shadcn/ui, Recharts. Tests: pytest (404 tests, 98% coverage) and Playwright.
+Backend: FastAPI, SQLAlchemy 2, Alembic, PostgreSQL, PyJWT. Frontend: Next.js 15, React 19, Tailwind 4, shadcn/ui, Recharts. Tests: pytest (446 tests, 98% coverage) and Playwright.
 
 ## State machine
 
@@ -143,10 +143,11 @@ These rates describe a test set deliberately skewed toward edge cases, not an ap
 | ![Metrics](docs/screenshots/11-metrics.png) PM metrics dashboard | ![Referral queue](docs/screenshots/12-referral-queue.png) Referral queue |
 | ![Referral detail](docs/screenshots/13-referral-detail.png) Referral detail and analyst review | ![Policy editor](docs/screenshots/14-policy-editor.png) Credit-policy editor |
 | ![Phone landing](docs/screenshots/15-phone-landing.png) Landing page on a phone | ![Phone metrics](docs/screenshots/16-phone-metrics.png) "Simulated timings" chart on a phone |
+| ![My applications](docs/screenshots/17-my-applications.png) "My applications" for a returning applicant; the new application reused e-KYC | |
 
 ## Key product decisions
 
-The full log is in [docs/DECISIONS.md](docs/DECISIONS.md) (D-01 to D-46). The ones that shape the product most:
+The full log is in [docs/DECISIONS.md](docs/DECISIONS.md) (D-01 to D-47). The ones that shape the product most:
 
 - **Refer, don't decline, when data is missing or thin** (D-08, D-09, D-10). A bureau outage, a declined bank-data consent or a thin credit file sends the case to an analyst instead of turning away a possibly good borrower.
 - **Evaluate every rule and keep every reason** (D-11, D-23). Analysts see the full picture; the applicant sees the one most useful reason.
@@ -156,6 +157,7 @@ The full log is in [docs/DECISIONS.md](docs/DECISIONS.md) (D-01 to D-46). The on
 - **Policy is versioned, and decisions keep their version** (D-14, D-38, EC-15). An offer accepted after a policy edit still honours the policy it was decided under.
 - **R2 is calibrated to an approval-rate scenario, not a risk mapping** (D-13).
 - **Public demo is read-only** (D-19, D-39). Anyone can explore the internal tools; names are reduced to initials and writes need a login.
+- **Applicants only ever reach their own applications** (D-47). Another applicant's application answers 404, the same as one that doesn't exist; a returning applicant sees "My applications" and reuses e-KYC already done for the same PAN.
 - **The deployed demo is seeded, with simulated timings** (D-42, D-44). Visitors see a populated dashboard and queue. Stage durations in the seed are drawn from assumed distributions and labelled "Simulated timings"; the simulation report keeps the real run's timings.
 
 ## Limitations
@@ -193,8 +195,8 @@ Set `DEMO_SEED=true` in `backend/.env` before the first start to load the 500 se
 **Tests**
 
 ```bash
-cd backend && .venv/bin/python -m pytest --cov          # 404 tests, 98% coverage
-cd frontend && npm run build && npm run test:e2e        # happy path + cold-start notice; backend running with CLOCK_START=2026-10-22T09:00:00+05:30
+cd backend && .venv/bin/python -m pytest --cov          # 446 tests, 98% coverage
+cd frontend && npm run build && npm run test:e2e        # happy path, returning applicant, cold-start notice; backend running with CLOCK_START=2026-10-22T09:00:00+05:30
 python scripts/check_api_docs.py                        # docs/API.md matches the OpenAPI spec
 ```
 

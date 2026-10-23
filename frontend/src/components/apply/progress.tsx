@@ -15,13 +15,14 @@ const INDEX: Record<Stage, number> = {
   decision: 5,
   offer: 6,
   expired: 0,
+  applications: 0,
 };
 
 /** Segmented progress for the 8-step journey. The current step is also announced as text. */
 export function Progress({ stage, offerPhase }: { stage: Stage; offerPhase: OfferPhase }) {
   const done = stage === "offer" && offerPhase === "done";
   const current = done ? STEPS.length : stage === "offer" && offerPhase === "sign" ? 7 : INDEX[stage];
-  if (stage === "loading" || stage === "expired") return <div className="h-[2.75rem]" aria-hidden />;
+  if (stage === "loading" || stage === "expired" || stage === "applications") return <div className="h-[2.75rem]" aria-hidden />;
   return (
     <nav aria-label="Application progress">
       <p className="text-sm text-muted-foreground">

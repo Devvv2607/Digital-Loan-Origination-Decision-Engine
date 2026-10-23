@@ -64,6 +64,9 @@ export function PersonaList() {
           ) : (
             <li key={p.persona_id} className="grid gap-3 px-4 py-4 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-6 sm:px-5">
               <div className="min-w-0">
+                <p className="mb-1 text-xs font-medium tracking-wide text-muted-foreground">
+                  Fictional person · synthetic data
+                </p>
                 <p className="font-semibold">
                   {p.label}
                   <span className="font-normal text-muted-foreground">, {p.applicant_name}</span>
@@ -78,6 +81,7 @@ export function PersonaList() {
                 type="button"
                 onClick={() => start(p.persona_id)}
                 disabled={starting !== null}
+                aria-label={starting === p.persona_id ? undefined : `Try a sample applicant: ${p.applicant_name}`}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-primary/40 px-4 text-sm font-medium text-primary hover:bg-accent disabled:opacity-60"
               >
                 {starting === p.persona_id ? (
@@ -86,7 +90,7 @@ export function PersonaList() {
                     Preparing
                   </>
                 ) : (
-                  <>Start as {p.applicant_name.split(" ")[0]}</>
+                  <>Try a sample applicant</>
                 )}
               </button>
             </li>

@@ -13,6 +13,7 @@ from app.schemas.applications import (
     ApplicationCreated,
     ApplicationDetailsPatch,
     ApplicationView,
+    MyApplications,
     SubmitResponse,
 )
 from app.schemas.common import error_responses
@@ -42,6 +43,20 @@ def create_application(
     return ApplicationCreated(
         id=app.id, state=app.state, next_step=app_service.next_step(app), created_at=app.created_at
     )
+
+
+@router.get(
+    "",
+    response_model=MyApplications,
+    responses=error_responses(401, 403),
+    summary="My applications: your own applications with status and next step",
+)
+def list_my_applications(
+    principal: Principal = Depends(require_applicant),
+    db: Session = Depends(get_db),
+    clock: Clock = Depends(get_clock),
+) -> MyApplications:
+    return app_service.my_applications(db, principal.applicant_id, clock.now())
 
 
 @router.get(
@@ -93,6 +108,7 @@ def submit_application(
     clock: Clock = Depends(get_clock),
 ) -> JSONResponse:
     now = clock.now()
+    app_service.ensure_access(db, application_id, principal)
 
     def handler() -> tuple[int, dict]:
         app = app_service.load_application(db, application_id, principal, now, for_update=True)

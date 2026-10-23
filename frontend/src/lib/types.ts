@@ -43,18 +43,29 @@ export interface ApplicationView {
   next_step: NextStep;
   details: Details;
   pan: { masked: string | null; status: string };
-  kyc: { status: string };
+  /** `reused`: e-KYC was reused from an earlier application with the same PAN (D-47). */
+  kyc: { status: string; reused: boolean };
   aa: { status: string };
   policy_version: number | null;
   created_at: string;
   last_activity_at: string;
 }
 
-export interface Resumable {
+export interface MyApplication {
   id: string;
   state: AppState;
   next_step: NextStep;
+  loan_amount: number | null;
+  tenure_months: number | null;
+  purpose: string | null;
+  kyc_reused: boolean;
+  created_at: string;
   last_activity_at: string;
+}
+
+export interface MyApplications {
+  items: MyApplication[];
+  kyc_on_file: boolean;
 }
 
 export interface Persona {

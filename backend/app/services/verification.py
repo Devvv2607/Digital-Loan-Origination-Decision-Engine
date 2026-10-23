@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -60,7 +60,8 @@ def normalize_pan(raw: str) -> str:
 
 
 def _pan_response(app: Application, status: str, **extra) -> PanVerifyResponse:
-    return PanVerifyResponse(status=status, pan_masked=mask_pan(app.pan), next_step=next_step(app), **extra)
+    return PanVerifyResponse(status=status, pan_masked=mask_pan(app.pan), next_step=next_step(app),
+                             kyc_reused=app.kyc_reused_from_application_id is not None, **extra)
 
 
 def _confirmation_needed(app: Application) -> PanVerifyResponse:
@@ -74,11 +75,50 @@ def _confirmation_needed(app: Application) -> PanVerifyResponse:
     )
 
 
-def _apply_name_confirmation(app: Application, choice: str) -> None:
+def _apply_name_confirmation(db: Session, app: Application, choice: str, now: datetime) -> None:
     if choice == "USE_PAN_NAME":
         app.full_name = display_name(app.pan_name or "")
     app.pan_name_confirmation = choice
+    _mark_pan_verified(db, app, now)
+
+
+def _mark_pan_verified(db: Session, app: Application, now: datetime) -> None:
     app.pan_status = "VERIFIED"
+    reuse_kyc_on_file(db, app, now)
+
+
+def reuse_kyc_on_file(db: Session, app: Application, now: datetime) -> bool:
+    """D-47: if this applicant completed e-KYC on an earlier application for the same verified PAN,
+    copy that result and skip the e-KYC step. Never crosses applicants or PANs. Caller commits."""
+    if app.kyc_status != "NOT_STARTED" or app.pan is None:
+        return False
+    source = db.scalar(
+        select(Application)
+        .where(
+            Application.applicant_id == app.applicant_id,
+            Application.id != app.id,
+            Application.pan == app.pan,
+            Application.kyc_status == "COMPLETE",
+        )
+        .order_by(Application.last_activity_at.desc())
+        .limit(1)
+    )
+    if source is None:
+        return False
+    app.kyc_status = "COMPLETE"
+    app.kyc_session_id = None
+    app.kyc_name = source.kyc_name
+    app.kyc_dob = source.kyc_dob
+    app.kyc_address = source.kyc_address
+    # Recomputed for this application, so fraud check F3 sees the same inputs as a fresh e-KYC.
+    app.kyc_pan_name_similarity = name_similarity(app.pan_name, source.kyc_name)
+    app.kyc_reused_from_application_id = source.id
+    record_event(
+        db, app, event_type=EventType.NOTE, actor="system", reason="KYC_REUSED",
+        metadata={"source_application_id": str(source.id)}, now=now,
+    )
+    logger.info("e-KYC reused for application %s from %s", app.id, source.id)
+    return True
 
 
 def verify_pan(
@@ -110,7 +150,7 @@ def verify_pan(
     if app.pan_status == "NAME_CONFIRMATION_REQUIRED" and pan == app.pan:
         if name_confirmation is None:
             return _confirmation_needed(app)
-        _apply_name_confirmation(app, name_confirmation)
+        _apply_name_confirmation(db, app, name_confirmation, now)
         touch(app, now)
         db.commit()
         return _pan_response(app, "VERIFIED", name_on_pan=app.pan_name)
@@ -164,13 +204,13 @@ def verify_pan(
 
     # EC-04 uses the same name-match threshold as fraud check F3.
     if app.pan_name_similarity >= policy.params("F3").name_similarity_min:
-        app.pan_status = "VERIFIED"
+        _mark_pan_verified(db, app, now)
         db.commit()
         return _pan_response(app, "VERIFIED", name_on_pan=app.pan_name)
 
     app.pan_status = "NAME_CONFIRMATION_REQUIRED"
     if name_confirmation is not None:
-        _apply_name_confirmation(app, name_confirmation)
+        _apply_name_confirmation(db, app, name_confirmation, now)
         db.commit()
         return _pan_response(app, "VERIFIED", name_on_pan=app.pan_name)
     db.commit()

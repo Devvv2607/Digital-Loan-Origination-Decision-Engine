@@ -218,5 +218,5 @@ def test_decision_access_control(client, applicant_headers):
     assert client.get(f"/applications/{app_id}/decision", headers=applicant_headers).status_code == 404  # not assessed yet
     assess(client, app_id, applicant_headers)
     other = applicant_headers_for(client, phone="9000000002")
-    assert client.get(f"/applications/{app_id}/decision", headers=other).status_code == 403
+    assert client.get(f"/applications/{app_id}/decision", headers=other).status_code == 404
     assert client.get(f"/applications/{app_id}/decision").status_code == 401

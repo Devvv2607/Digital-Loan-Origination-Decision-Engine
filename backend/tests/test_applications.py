@@ -31,10 +31,11 @@ def test_create_requires_login(client):
 
 
 def test_other_applicant_cannot_read_application(client, applicant_headers):
+    """404, not 403, so another applicant's application ID can't be probed (test_applicant_isolation.py)."""
     app_id = create_application(client, applicant_headers)
     other = applicant_headers_for(client, phone="9000000002")
     r = client.get(f"/applications/{app_id}", headers=other)
-    assert r.status_code == 403 and r.json()["error_code"] == "FORBIDDEN"
+    assert r.status_code == 404 and r.json()["error_code"] == "NOT_FOUND"
 
 
 def test_unknown_application_is_404(client, applicant_headers):

@@ -65,6 +65,14 @@ class StatusSummary(BaseModel):
     status: str
 
 
+class KycSummary(BaseModel):
+    status: str
+    reused: bool = Field(
+        default=False,
+        description="True when e-KYC was reused from your earlier application for the same PAN (D-47).",
+    )
+
+
 class TimelineEvent(BaseModel):
     event_type: str
     from_state: str | None
@@ -87,7 +95,7 @@ class ApplicationView(BaseModel):
     next_step: str
     details: ApplicationDetails
     pan: PanSummary
-    kyc: StatusSummary
+    kyc: KycSummary
     aa: StatusSummary
     policy_version: int | None
     created_at: datetime
@@ -106,3 +114,23 @@ class ResumableApplication(BaseModel):
     state: str
     next_step: str
     last_activity_at: datetime
+
+
+class MyApplication(BaseModel):
+    id: UUID
+    state: str
+    next_step: str
+    loan_amount: int | None
+    tenure_months: int | None
+    purpose: str | None
+    kyc_reused: bool
+    created_at: datetime
+    last_activity_at: datetime
+
+
+class MyApplications(BaseModel):
+    items: list[MyApplication] = Field(description="Your applications, most recently active first.")
+    kyc_on_file: bool = Field(
+        description="True if you completed e-KYC on an earlier application. A new application with "
+        "the same PAN reuses it and skips the e-KYC step (D-47)."
+    )

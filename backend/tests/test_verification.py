@@ -73,6 +73,7 @@ def test_pan_verified_when_names_match(client, submitted, db_session):
     assert r.json() == {
         "status": "VERIFIED", "pan_masked": "ZZZPZ****Q", "name_on_pan": "ASHA VERMA",
         "name_entered": None, "options": None, "message": None, "next_step": "EKYC",
+        "kyc_reused": False,
     }
     [call] = calls_for(db_session, app_id, "pan")
     assert call.request == {"pan": "ZZZPZ****Q"} and call.status == "SUCCESS"

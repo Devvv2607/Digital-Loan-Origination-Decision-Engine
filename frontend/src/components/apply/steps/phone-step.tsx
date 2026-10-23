@@ -4,21 +4,11 @@ import { useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { ApiError, api } from "@/lib/api";
-import { dateTime, PHONE_PATTERN } from "@/lib/format";
-import { deviceId } from "@/lib/session";
-import type { Resumable } from "@/lib/types";
+import { PHONE_PATTERN } from "@/lib/format";
+import type { MyApplications } from "@/lib/types";
 
 import type { FlowContext } from "../flow";
 import { ActionButton, ErrorNotice, Field, SimulatedCode, StepShell, describe, inputClass } from "../ui";
-
-const STEP_NAMES: Record<string, string> = {
-  DETAILS: "your details",
-  SUBMIT: "submitting your details",
-  PAN: "PAN verification",
-  EKYC: "e-KYC",
-  AA_CONSENT: "the bank-data step",
-  ASSESS: "your decision",
-};
 
 export function PhoneStep({ ctx }: { ctx: FlowContext }) {
   const [phone, setPhone] = useState(ctx.session.persona?.phone ?? "");
@@ -27,7 +17,6 @@ export function PhoneStep({ ctx }: { ctx: FlowContext }) {
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState<"send" | "verify" | "create" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [resumable, setResumable] = useState<{ token: string; items: Resumable[] } | null>(null);
 
   async function sendCode(e?: React.FormEvent) {
     e?.preventDefault();
@@ -55,24 +44,11 @@ export function PhoneStep({ ctx }: { ctx: FlowContext }) {
   async function createApplication(token: string) {
     setBusy("create");
     try {
-      const { data } = await api<{ id: string }>("/applications", {
-        method: "POST",
-        token,
-        headers: { "X-Device-Id": deviceId() },
-      });
-      const session = { ...ctx.session, token, applicationId: data.id };
-      ctx.setSession(session);
-      await ctx.refresh(data.id, session);
+      await ctx.newApplication(token);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't start your application.");
       setBusy(null);
     }
-  }
-
-  async function resume(token: string, id: string) {
-    const session = { ...ctx.session, token, applicationId: id };
-    ctx.setSession(session);
-    await ctx.refresh(id, session);
   }
 
   async function verify(e: React.FormEvent) {
@@ -80,13 +56,16 @@ export function PhoneStep({ ctx }: { ctx: FlowContext }) {
     setError(null);
     setBusy("verify");
     try {
-      const { data } = await api<{ access_token: string; resumable_applications: Resumable[] }>("/auth/otp/verify", {
+      const { data } = await api<{ access_token: string }>("/auth/otp/verify", {
         method: "POST",
         body: { phone, otp },
       });
-      if (!ctx.session.persona && data.resumable_applications.length > 0) {
-        setResumable({ token: data.access_token, items: data.resumable_applications });
-        setBusy(null);
+      // A returning applicant sees "My applications" first; a new one goes straight to the form.
+      const mine = await api<MyApplications>("/applications", { token: data.access_token });
+      if (mine.data.items.length > 0) {
+        const session = { ...ctx.session, token: data.access_token, applicationId: null };
+        ctx.setSession(session);
+        await ctx.refresh(undefined, session);
         return;
       }
       await createApplication(data.access_token);
@@ -99,36 +78,6 @@ export function PhoneStep({ ctx }: { ctx: FlowContext }) {
       }
       setBusy(null);
     }
-  }
-
-  if (resumable) {
-    return (
-      <StepShell title="Pick up where you left off" intro="You have an application in progress on this number.">
-        <ul className="space-y-3">
-          {resumable.items.map((r) => (
-            <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
-              <div className="text-sm">
-                <p className="font-medium">Next: {STEP_NAMES[r.next_step] ?? "continue"}</p>
-                <p className="text-muted-foreground">Last updated {dateTime(r.last_activity_at)}</p>
-              </div>
-              <ActionButton className="sm:w-auto" onClick={() => resume(resumable.token, r.id)}>
-                Continue this application
-              </ActionButton>
-            </li>
-          ))}
-        </ul>
-        <p className="text-sm text-muted-foreground">
-          Applications you leave for 30 days expire.{" "}
-          <button
-            type="button"
-            className="font-medium text-primary underline underline-offset-2"
-            onClick={() => createApplication(resumable.token)}
-          >
-            Start a new application instead
-          </button>
-        </p>
-      </StepShell>
-    );
   }
 
   return (

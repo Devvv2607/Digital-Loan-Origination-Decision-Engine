@@ -17,6 +17,11 @@ class PanVerifyResponse(BaseModel):
     options: list[str] | None = None
     message: str | None = None
     next_step: str
+    kyc_reused: bool = Field(
+        default=False,
+        description="True when e-KYC from your earlier application for this PAN was reused, so the "
+        "e-KYC step is skipped (D-47).",
+    )
 
 
 class KycStartResponse(BaseModel):

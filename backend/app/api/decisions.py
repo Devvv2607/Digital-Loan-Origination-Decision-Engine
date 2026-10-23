@@ -17,7 +17,7 @@ from app.engine.policy import load_policy
 from app.integrations.registry import Providers, get_providers
 from app.schemas.common import error_responses
 from app.services import offers as offer_service
-from app.services.applications import load_application, next_step
+from app.services.applications import OFFER_NEXT_STEP, ensure_access, load_application, next_step
 from app.services.assessment import (
     applicant_decision_view,
     assess,
@@ -57,6 +57,7 @@ def assess_application(
     clock: Clock = Depends(get_clock),
 ) -> JSONResponse:
     now = clock.now()
+    ensure_access(db, application_id, principal)
 
     def handler():
         app = load_application(db, application_id, principal, now, for_update=True)
@@ -99,9 +100,6 @@ def get_offer(
             "next_step": _offer_next_step(app, offer)}
 
 
-OFFER_NEXT_STEP = {"GENERATED": "OFFER", "ACCEPTED": "ESIGN", "ESIGNED": "DISBURSE"}
-
-
 def _offer_next_step(app, offer) -> str:
     """Within APPROVED, the next step depends on the offer's status."""
     if app.state == "APPROVED":
@@ -110,6 +108,8 @@ def _offer_next_step(app, offer) -> str:
 
 
 def _offer_action(db, principal, application_id, now, endpoint, payload, key, action):
+    ensure_access(db, application_id, principal)
+
     def handler():
         app = load_application(db, application_id, principal, now, for_update=True)
         offer = action(app)

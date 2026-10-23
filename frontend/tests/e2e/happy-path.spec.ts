@@ -14,7 +14,7 @@ test("strong borrower goes from landing page to disbursal", async ({ page }) => 
   await expect(page.getByRole("note", { name: "Demo disclaimer" })).toContainText(
     "Not affiliated with any bank or lender",
   );
-  await click("Start as Asha");
+  await click("Try a sample applicant: Asha Verma");
 
   // Phone + simulated OTP
   await expect(step("Verify your mobile number")).toBeVisible();

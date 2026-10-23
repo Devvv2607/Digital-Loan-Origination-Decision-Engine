@@ -18,7 +18,7 @@ All example PANs, phone numbers and names are synthetic. Example PANs use the pr
 | Role | How obtained | Can do |
 |---|---|---|
 | `public` | No token | `GET /health`, OTP endpoints, read-only internal views when `DEMO_READ_ONLY=true`, `/mock/*` (rate-limited) |
-| `applicant` | `POST /auth/otp/verify` → JWT (`sub` = applicant ID) | Create and act on **own** applications only |
+| `applicant` | `POST /auth/otp/verify` → JWT (`sub` = applicant ID) | Create and act on **own** applications only. Another applicant's application answers `404 NOT_FOUND`, exactly like one that doesn't exist (D-47) |
 | `ops` | `POST /auth/login` with `OPS_USERNAME`/`OPS_PASSWORD` | Review referrals; read admin and metrics views |
 | `admin` | `POST /auth/login` with `ADMIN_USERNAME`/`ADMIN_PASSWORD` | Everything ops can do, plus edit policy, reset demo data, run expiry job, register mock fixtures |
 
@@ -45,8 +45,8 @@ Every error uses one shape:
 | 400 | `KYC_OTP_INVALID` | Wrong KYC OTP |
 | 400 | `KFS_NOT_ACKNOWLEDGED` | Accept without KFS acknowledgement |
 | 401 | `UNAUTHENTICATED` | Missing/invalid token |
-| 403 | `FORBIDDEN` | Wrong role, or another applicant's application |
-| 404 | `NOT_FOUND` | Unknown resource |
+| 403 | `FORBIDDEN` | Wrong role (e.g. an ops token on an applicant action) |
+| 404 | `NOT_FOUND` | Unknown resource, or an application that belongs to another applicant (never 403, so IDs can't be probed) |
 | 409 | `INVALID_STATE_TRANSITION` | Action not allowed in current state |
 | 409 | `APPLICATION_ALREADY_IN_PROGRESS` | Duplicate PAN (EC-11, F1) — neutral wording |
 | 409 | `OFFER_EXPIRED` | Offer past `expires_at` |
@@ -68,6 +68,7 @@ Provider timeouts are **not** errors to the applicant: they return `200`/`202` w
 - Same key + same body → the original status code and body are returned; nothing is written again. Response header `Idempotent-Replay: true`.
 - Same key + different body → `422 IDEMPOTENCY_KEY_REUSED`.
 - Keys are stored per (endpoint, application) for 24 hours.
+- Ownership is checked **before** a stored response is replayed: another applicant sending the same key for the same application gets `404 NOT_FOUND`, never the stored body (D-47).
 - Independently of keys, these endpoints are **naturally idempotent**: e.g. `assess` on an application that already has a decision returns that decision; it never creates a second decision or offer.
 
 ### 0.5 Pagination
@@ -102,6 +103,7 @@ PAN → `ZZZPZ****Q`; phone → `******0001`. Applied in API responses to non-ow
 | `POST /admin/demo/reset` | "Reset demo data" admin action (§8b) |
 | `POST /admin/jobs/expire` | Bulk expiry for EC-14 / offer expiry; usable by a scheduler and tests |
 | `PUT /mock/profiles/{pan}` | Registers deterministic mock fixtures for demo personas and the 500-application simulation |
+| `GET /applications` | "My applications" for the signed-in applicant (US-09 enhancement, D-47) |
 | `GET /demo/personas`, `POST /demo/personas/{application_id}` | One-click demo personas on the landing page (only when `DEMO_MODE=true`; see D-36) |
 
 ---
@@ -189,6 +191,23 @@ Header `X-Device-Id: <client-generated device ID>` (used by F2).
 {"id": "a3c9d1f2-7e44-4f6b-8c2d-1b2a3c4d5e6f", "state": "DRAFT", "created_at": "2026-10-20T09:00:30Z"}
 ```
 
+### `GET /applications` — applicant *(added)*
+"My applications" (US-09 enhancement, D-47): every application of the signed-in applicant, most recently active first, with its state and next step. Only ever the caller's own applications. Due expiries are applied before listing. For `APPROVED`, `next_step` follows the offer (`OFFER`, `ESIGN`, `DISBURSE`).
+
+`200`
+```json
+{
+  "items": [
+    {"id": "c71e...", "state": "KYC_PENDING", "next_step": "AA_CONSENT", "loan_amount": 500000, "tenure_months": 36,
+     "purpose": "HOME_RENOVATION", "kyc_reused": true, "created_at": "2026-10-22T09:00:40Z", "last_activity_at": "2026-10-22T09:01:10Z"},
+    {"id": "a3c9...", "state": "DISBURSED", "next_step": "DONE", "loan_amount": 500000, "tenure_months": 36,
+     "purpose": "HOME_RENOVATION", "kyc_reused": false, "created_at": "2026-10-20T09:00:30Z", "last_activity_at": "2026-10-20T11:40:00Z"}
+  ],
+  "kyc_on_file": true
+}
+```
+`kyc_on_file` is `true` when the applicant has completed e-KYC on any application; a new application with the same PAN then skips e-KYC. Errors: `401` (no applicant session), `403` (ops/admin token).
+
 ### `GET /applications/{application_id}` — applicant (owner)
 Includes saved details, current step and the event timeline (used for resume and by the simulation's transition checks).
 
@@ -205,7 +224,7 @@ Includes saved details, current step and the event timeline (used for resume and
     "loan_amount": 500000, "tenure_months": 36, "purpose": "HOME_RENOVATION"
   },
   "pan": {"masked": "ZZZPZ****Q", "status": "VERIFIED"},
-  "kyc": {"status": "PENDING"},
+  "kyc": {"status": "OTP_SENT", "reused": false},
   "aa": {"status": "NOT_STARTED"},
   "policy_version": null,
   "last_activity_at": "2026-10-20T09:03:10Z",
@@ -215,7 +234,11 @@ Includes saved details, current step and the event timeline (used for resume and
   ]
 }
 ```
-Errors: `403 FORBIDDEN`, `404 NOT_FOUND`. An abandoned application is expired lazily on read and returned with `state: "EXPIRED"`.
+`kyc.reused` is `true` when e-KYC was reused from the applicant's earlier application with the same PAN (D-47).
+
+Errors: `404 NOT_FOUND` (unknown, or another applicant's application). An abandoned application is expired lazily on read and returned with `state: "EXPIRED"`.
+
+Every applicant endpoint under `/applications/{application_id}` (this one, `PATCH`, `submit`, `pan/verify`, `kyc/*`, `aa/consent`, `assess`, `decision`, `offer`, `offer/accept`, `offer/esign`, `disburse`) answers `404 NOT_FOUND` for another applicant's application and changes nothing. Covered endpoint by endpoint in `backend/tests/test_applicant_isolation.py`.
 
 ### `PATCH /applications/{application_id}` — applicant (owner), `DRAFT` only
 Partial update of `details`.
@@ -237,7 +260,11 @@ Errors: `422 VALIDATION_ERROR` (`details.missing_fields`), `409 INVALID_STATE_TR
 ```
 `200` — verified, names match
 ```json
-{"status": "VERIFIED", "pan_masked": "ZZZPZ****Q", "name_on_pan": "ASHA VERMA", "next_step": "EKYC"}
+{"status": "VERIFIED", "pan_masked": "ZZZPZ****Q", "name_on_pan": "ASHA VERMA", "next_step": "EKYC", "kyc_reused": false}
+```
+`200` — verified, and e-KYC already on file for this applicant and PAN (D-47): e-KYC is copied from the earlier application, a `NOTE` event `KYC_REUSED` is logged, and the e-KYC step is skipped
+```json
+{"status": "VERIFIED", "pan_masked": "ZZZPZ****Q", "name_on_pan": "ASHA VERMA", "next_step": "AA_CONSENT", "kyc_reused": true}
 ```
 `200` — name differs (EC-04)
 ```json
@@ -260,6 +287,7 @@ Errors:
 - `409 APPLICATION_ALREADY_IN_PROGRESS` (EC-11) — neutral message: "An application with these details is already in progress. Please continue that application." Internally logs a `FRAUD_CHECK` event with `FRAUD_DUPLICATE_PAN`.
 
 ### `POST /applications/{application_id}/kyc/start` — applicant, `KYC_PENDING`, PAN verified
+Returns `409 INVALID_STATE_TRANSITION` if e-KYC is already complete, including when it was reused (D-47).
 `200`
 ```json
 {"kyc_session_id": "k-7d1e...", "status": "OTP_SENT", "demo_kyc_otp": "601245", "demo_notice": "Simulated e-KYC — no real identity data is used."}

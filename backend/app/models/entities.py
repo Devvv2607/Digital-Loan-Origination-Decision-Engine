@@ -83,6 +83,10 @@ class Application(Base):
     kyc_address: Mapped[dict | None] = mapped_column(JSONB)
     # PAN name vs KYC name similarity, kept for fraud check F3 (never shown to the applicant).
     kyc_pan_name_similarity: Mapped[float | None] = mapped_column(Float)
+    # Set when e-KYC was reused from the same applicant's earlier application for the same PAN (D-47).
+    kyc_reused_from_application_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("applications.id"))
+    # Set when e-KYC was reused from the same applicant's earlier application for the same PAN (D-47).
+    kyc_reused_from_application_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("applications.id"))
 
     # Account Aggregator (US-05)
     aa_status: Mapped[str] = mapped_column(String(32), default="NOT_STARTED")

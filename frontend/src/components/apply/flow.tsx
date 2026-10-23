@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ApiError, api } from "@/lib/api";
-import { clearSession, loadSession, saveSession, type Session } from "@/lib/session";
+import { clearSession, deviceId, loadSession, saveSession, type Session } from "@/lib/session";
 import type { ApplicationView, NextStep } from "@/lib/types";
 
+import { ApplicationsStep } from "./steps/applications-step";
 import { AssessStep } from "./steps/assess-step";
 import { ConsentStep } from "./steps/consent-step";
 import { DecisionStep } from "./steps/decision-step";
@@ -21,6 +22,7 @@ import { ErrorNotice } from "./ui";
 export type Stage =
   | "loading"
   | "phone"
+  | "applications"
   | "details"
   | "pan"
   | "ekyc"
@@ -65,6 +67,13 @@ export interface FlowContext {
   refresh: (applicationId?: string, sessionOverride?: Session) => Promise<void>;
   showDecision: () => void;
   startOver: () => void;
+  /** Show "My applications" for the signed-in applicant. */
+  showApplications: () => void;
+  openApplication: (applicationId: string) => Promise<void>;
+  /** Create a new application for this applicant and go to its first step. */
+  newApplication: (token: string) => Promise<void>;
+  /** The session is no longer valid: verify the phone again. */
+  signOut: () => void;
   /** The offer stage reports where it is (KFS, signing, done) so progress can show steps 7-8. */
   setOfferPhase: (phase: OfferPhase) => void;
 }
@@ -87,8 +96,13 @@ export function ApplyFlow() {
     async (applicationId?: string, sessionOverride?: Session) => {
       const s = sessionOverride ?? loadSession();
       const id = applicationId ?? s.applicationId;
-      if (!s.token || !id) {
+      if (!s.token) {
         setStage("phone");
+        return;
+      }
+      if (!id) {
+        setApp(null);
+        setStage("applications");
         return;
       }
       try {
@@ -97,12 +111,18 @@ export function ApplyFlow() {
         setError(null);
         setStage(stageFor(data.next_step));
       } catch (e) {
-        if (e instanceof ApiError && (e.status === 401 || e.status === 403 || e.status === 404)) {
-          // Session expired or belongs to someone else: verify the phone again; resume is offered there.
-          const next = { ...s, token: null, applicationId: null };
-          setSession(next);
+        if (e instanceof ApiError && e.status === 401) {
+          // Session expired: verify the phone again; the applicant's applications are listed after that.
+          setSession({ ...s, token: null, applicationId: null });
           setApp(null);
           setStage("phone");
+          return;
+        }
+        if (e instanceof ApiError && (e.status === 403 || e.status === 404)) {
+          // Not one of this applicant's applications (or gone): show the ones that are.
+          setSession({ ...s, applicationId: null });
+          setApp(null);
+          setStage("applications");
           return;
         }
         setError(e instanceof ApiError ? e.message : "Something went wrong. Please try again.");
@@ -124,6 +144,34 @@ export function ApplyFlow() {
     refresh,
     showDecision: () => setStage("decision"),
     setOfferPhase,
+    showApplications: () => {
+      setSession({ ...loadSession(), applicationId: null });
+      setApp(null);
+      setOfferPhase("kfs");
+      setStage("applications");
+    },
+    openApplication: async (applicationId) => {
+      const next = { ...loadSession(), applicationId };
+      setSession(next);
+      setOfferPhase("kfs");
+      await refresh(applicationId, next);
+    },
+    newApplication: async (token) => {
+      const { data } = await api<{ id: string }>("/applications", {
+        method: "POST",
+        token,
+        headers: { "X-Device-Id": deviceId() },
+      });
+      const next = { ...loadSession(), token, applicationId: data.id };
+      setSession(next);
+      setOfferPhase("kfs");
+      await refresh(data.id, next);
+    },
+    signOut: () => {
+      setSession({ ...loadSession(), token: null, applicationId: null });
+      setApp(null);
+      setStage("phone");
+    },
     startOver: () => {
       clearSession();
       setSessionState({ token: null, applicationId: null, persona: null });
@@ -137,10 +185,22 @@ export function ApplyFlow() {
     <div className="mx-auto w-full max-w-[38rem] px-4 py-8 sm:py-10">
       <Progress stage={stage} offerPhase={offerPhase} />
       {session.persona && stage !== "loading" ? <PersonaHint ctx={ctx} expanded={stage === "phone"} /> : null}
+      {session.token && !["loading", "phone", "applications"].includes(stage) ? (
+        <p className="mt-4 text-sm">
+          <button
+            type="button"
+            onClick={ctx.showApplications}
+            className="min-h-11 font-medium text-primary underline underline-offset-2"
+          >
+            My applications
+          </button>
+        </p>
+      ) : null}
       <div className="mt-6">
         <ErrorNotice message={error} />
         {stage === "loading" ? <p className="text-muted-foreground">Loading your application</p> : null}
         {stage === "phone" ? <PhoneStep ctx={ctx} /> : null}
+        {stage === "applications" ? <ApplicationsStep ctx={ctx} /> : null}
         {stage === "details" ? <DetailsStep ctx={ctx} /> : null}
         {stage === "pan" ? <PanStep ctx={ctx} /> : null}
         {stage === "ekyc" ? <EkycStep ctx={ctx} /> : null}

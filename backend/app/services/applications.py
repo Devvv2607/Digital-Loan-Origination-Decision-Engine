@@ -10,12 +10,15 @@ from app.core.errors import AppError
 from app.core.masking import mask_pan
 from app.core.security import Principal, Role
 from app.engine.policy import load_policy
-from app.models import Application, ApplicationEvent
+from app.models import Application, ApplicationEvent, Offer
 from app.schemas.applications import (
     DETAIL_FIELDS,
     ApplicationDetails,
     ApplicationDetailsPatch,
     ApplicationView,
+    KycSummary,
+    MyApplication,
+    MyApplications,
     PanSummary,
     ResumableApplication,
     StatusSummary,
@@ -26,6 +29,14 @@ from app.state_machine.machine import InvalidTransitionError, record_creation, t
 from app.state_machine.states import AppState
 
 REQUIRED_FOR_SUBMIT = DETAIL_FIELDS
+# Within APPROVED, the next step depends on the offer's status.
+OFFER_NEXT_STEP = {"GENERATED": "OFFER", "ACCEPTED": "ESIGN", "ESIGNED": "DISBURSE"}
+
+
+def _not_found() -> AppError:
+    # The same answer whether the application doesn't exist or belongs to someone else,
+    # so an applicant can't learn that another applicant's application ID exists.
+    return AppError(404, "NOT_FOUND", "Application not found.")
 
 
 def touch(application: Application, now: datetime) -> None:
@@ -64,18 +75,32 @@ def load_application(
     *,
     for_update: bool = False,
 ) -> Application:
-    """Load an application the principal may access, applying any due expiry first."""
+    """Load an application the principal may access, applying any due expiry first.
+
+    Applicants can only reach their own applications; anyone else's is a 404, never a 403.
+    Ops and admin can reach every application.
+    """
     stmt = select(Application).where(Application.id == application_id)
+    if principal.role == Role.APPLICANT:
+        stmt = stmt.where(Application.applicant_id == principal.applicant_id)
     if for_update:
         stmt = stmt.with_for_update()
     application = db.scalar(stmt)
     if application is None:
-        raise AppError(404, "NOT_FOUND", "Application not found.")
-    if principal.role == Role.APPLICANT and application.applicant_id != principal.applicant_id:
-        raise AppError(403, "FORBIDDEN", "You don't have access to this application.")
+        raise _not_found()
     if expire_if_due(db, application, now):
         db.commit()
     return application
+
+
+def ensure_access(db: Session, application_id: uuid.UUID, principal: Principal) -> None:
+    """Ownership check with no side effects. Idempotent endpoints call this before looking up a
+    stored response, so a replayed key can never return another applicant's response."""
+    if principal.role != Role.APPLICANT:
+        return
+    owner = db.scalar(select(Application.applicant_id).where(Application.id == application_id))
+    if owner != principal.applicant_id:
+        raise _not_found()
 
 
 def next_step(application: Application) -> str:
@@ -177,6 +202,43 @@ def resumable_applications(
     return result
 
 
+def kyc_on_file(db: Session, applicant_id: uuid.UUID) -> bool:
+    return db.scalar(
+        select(Application.id)
+        .where(Application.applicant_id == applicant_id, Application.kyc_status == "COMPLETE")
+        .limit(1)
+    ) is not None
+
+
+def my_applications(db: Session, applicant_id: uuid.UUID, now: datetime) -> MyApplications:
+    """US-09 enhancement: every application of this applicant, with its status and next step."""
+    apps = db.scalars(
+        select(Application)
+        .where(Application.applicant_id == applicant_id)
+        .order_by(Application.last_activity_at.desc(), Application.created_at.desc())
+    ).all()
+    if any(expire_if_due(db, app, now) for app in apps):
+        db.commit()
+    offer_status = dict(
+        db.execute(select(Offer.application_id, Offer.status).where(Offer.application_id.in_([a.id for a in apps])))
+        .all()
+    ) if apps else {}
+    items = []
+    for app in apps:
+        step = next_step(app)
+        if app.state == AppState.APPROVED:
+            step = OFFER_NEXT_STEP.get(offer_status.get(app.id, ""), step)
+        items.append(
+            MyApplication(
+                id=app.id, state=app.state, next_step=step, loan_amount=app.loan_amount,
+                tenure_months=app.tenure_months, purpose=app.purpose,
+                kyc_reused=app.kyc_reused_from_application_id is not None,
+                created_at=app.created_at, last_activity_at=app.last_activity_at,
+            )
+        )
+    return MyApplications(items=items, kyc_on_file=kyc_on_file(db, applicant_id))
+
+
 def to_view(db: Session, application: Application) -> ApplicationView:
     events = db.scalars(
         select(ApplicationEvent)
@@ -189,7 +251,8 @@ def to_view(db: Session, application: Application) -> ApplicationView:
         next_step=next_step(application),
         details=ApplicationDetails(**{f: getattr(application, f) for f in DETAIL_FIELDS}),
         pan=PanSummary(masked=mask_pan(application.pan), status=application.pan_status),
-        kyc=StatusSummary(status=application.kyc_status),
+        kyc=KycSummary(status=application.kyc_status,
+                       reused=application.kyc_reused_from_application_id is not None),
         aa=StatusSummary(status=application.aa_status),
         policy_version=application.policy_version,
         created_at=application.created_at,

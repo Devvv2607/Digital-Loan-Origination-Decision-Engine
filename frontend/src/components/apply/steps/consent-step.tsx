@@ -40,6 +40,11 @@ export function ConsentStep({ ctx }: { ctx: FlowContext }) {
       title="Share your bank data to verify income"
       intro="Sharing lets us confirm your income without asking for payslips or statements."
     >
+      {ctx.app?.kyc.reused ? (
+        <Notice tone="approve" title="KYC already verified" live>
+          We used the e-KYC from your earlier application with this PAN, so you can skip that step.
+        </Notice>
+      ) : null}
       <dl className="divide-y divide-border rounded-lg border border-border bg-card text-[0.95rem]">
         {TERMS.map(([k, v]) => (
           <div key={k} className="grid grid-cols-[5rem_1fr] gap-3 px-4 py-3 sm:grid-cols-[6.5rem_1fr]">

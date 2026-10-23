@@ -146,7 +146,14 @@ Each story has 3–5 acceptance criteria in Given/When/Then form. Traceability t
 | AC1 | **Given** a `DRAFT` or `KYC_PENDING` application with activity in the last 30 days, **when** I verify OTP with the same phone, **then** I am offered to resume it at the first incomplete step with my saved data. |
 | AC2 | **Given** no activity on a `DRAFT` or `KYC_PENDING` application for 30 days, **when** it is next read or the expiry job runs, **then** it moves to `EXPIRED` (actor `system`, reason `ABANDONED_30D`) and I must start a new application (EC-14). |
 | AC3 | **Given** an application in `APPROVED`, `REFERRED` or `DECLINED`, **when** I return, **then** I see the matching screen (offer, "under review" or decision). |
-| AC4 | **Given** a session for a different phone, **when** it requests my application, **then** access is refused (403). |
+| AC4 | **Given** a session for a different phone, **when** it requests or acts on my application, its decision or its offer, **then** it gets `404 NOT_FOUND`, the same answer as for an application that doesn't exist, and nothing changes. |
+
+**Enhancement (D-47): "My applications" and reuse of e-KYC on file.** A returning applicant sees all their applications, not only the resumable ones, and doesn't repeat e-KYC for the same PAN.
+
+| # | Acceptance criterion |
+|---|---|
+| AC5 | **Given** I have applications on my phone number, **when** I verify OTP, **then** I see "My applications": each of my applications with its status and next step, most recent first, and only mine; I can continue or view each one, or start a new application. |
+| AC6 | **Given** I completed e-KYC on an earlier application, **when** I start a new application and verify the same PAN, **then** that e-KYC is reused, the e-KYC step is skipped, I see "KYC already verified", and the reuse is logged. A different PAN, or another applicant with the same PAN, goes through e-KYC as normal. |
 
 ### US-10 — Edit rule thresholds without a code deploy
 **As a** credit policy manager, **I want to** edit rule thresholds without a code deploy, with versioning, **so that** policy can change quickly and auditably.
@@ -233,7 +240,7 @@ All metrics are computed from `applications`, `application_events` and `decision
 | Area | Requirement |
 |---|---|
 | Disclosure | Persistent demo banner on every page; fictional brand "Lendwise (Demo)" only |
-| Security | Roles: applicant, ops, admin (JWT). Public read-only demo for internal screens; writes need login via environment-configured credentials |
+| Security | Roles: applicant, ops, admin (JWT). Applicants reach only their own applications; anyone else's is a 404 (D-47). Public read-only demo for internal screens; writes need login via environment-configured credentials |
 | Privacy | PAN masked `ABCDE****F`, phone masked `******0001` in logs and `integration_calls`; no real PANs, phones or secrets in the repo |
 | Reliability | Idempotency on submit, assess, offer accept and referral review; provider failures land the application in a defined state with a friendly message |
 | Abuse | Rate limits on OTP send/verify, application creation and `/mock/*` |

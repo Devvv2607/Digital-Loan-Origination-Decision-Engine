@@ -19,6 +19,6 @@ test("slow first API call shows the waking-up notice, then recovers", async ({ p
   const notice = page.getByRole("status").getByText("Waking up the demo server, this can take up to a minute.");
   await expect(notice).toBeVisible({ timeout: 10_000 });
   await expect(notice).toBeHidden({ timeout: 30_000 });
-  await expect(page.getByRole("button", { name: "Start as Asha" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try a sample applicant: Asha Verma" })).toBeVisible();
   await expect(page.getByText(/couldn't reach/i)).toHaveCount(0);
 });

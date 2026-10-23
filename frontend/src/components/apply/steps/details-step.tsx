@@ -11,7 +11,7 @@ import type { Details } from "@/lib/types";
 import type { FlowContext } from "../flow";
 import { ActionButton, ErrorNotice, Field, StepShell, describe, inputClass, selectClass } from "../ui";
 
-const PURPOSES: [string, string][] = [
+export const PURPOSES: [string, string][] = [
   ["HOME_RENOVATION", "Home renovation"],
   ["MEDICAL", "Medical expenses"],
   ["EDUCATION", "Education"],
